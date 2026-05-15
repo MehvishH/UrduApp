@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Urdu Aura",
+    "slug": "urdu-lingo-mobile",
+    "version": "1.0.0",
+    "icon": "./assets/urdu-aura-logo.png",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#f7efe3",
+      "image": "./assets/urdu-aura-logo.png"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/urdu-aura-logo.png",
+        "backgroundColor": "#f7efe3"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}
