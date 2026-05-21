@@ -12,12 +12,13 @@ import {
   TextInput,
   View,
 } from "react-native";
-import * as Speech from "expo-speech";
 import {
   NotoNastaliqUrdu_400Regular,
   NotoNastaliqUrdu_700Bold,
   useFonts,
 } from "@expo-google-fonts/noto-nastaliq-urdu";
+
+import { speakUrdu, stopSpeech } from "./utils/audio";
 
 import { BottomNav, type BottomTab } from "./components/BottomNav";
 import { ChoiceButton } from "./components/ChoiceButton";
@@ -269,42 +270,12 @@ export default function App() {
     startPlacementFlow(progress.level);
   };
 
-  const playPlacementAudio = (audioText: string) => {
-    void playPromptAudio(audioText);
+  const playPromptAudio = (romanText: string) => {
+    void speakUrdu({ roman: romanText, urdu: romanToUrdu(romanText) });
   };
 
-  const playPromptAudio = async (romanText: string) => {
-    Speech.stop();
-    const urduText = romanToUrdu(romanText);
-
-    try {
-      const voices = await Speech.getAvailableVoicesAsync();
-      const urduVoice = voices.find((voice) => (voice.language?.toLowerCase() ?? "").startsWith("ur"));
-      const fallbackVoice = voices.find((voice) => ["en-in", "en-gb", "en-us"].includes(voice.language?.toLowerCase() ?? ""));
-
-      if (urduVoice) {
-        Speech.speak(urduText, {
-          language: urduVoice.language,
-          voice: urduVoice.identifier,
-          rate: 0.5,
-          pitch: 1,
-        });
-        return;
-      }
-
-      Speech.speak(romanText, {
-        language: fallbackVoice?.language ?? "en-US",
-        voice: fallbackVoice?.identifier,
-        rate: 0.45,
-        pitch: 1,
-      });
-    } catch {
-      Speech.speak(romanText, {
-        language: "en-US",
-        rate: 0.45,
-        pitch: 1,
-      });
-    }
+  const playPlacementAudio = (audioText: string) => {
+    playPromptAudio(audioText);
   };
 
   const formatUrduAnswer = (romanText: string) => `${romanToUrdu(romanText)} (${romanText})`;
