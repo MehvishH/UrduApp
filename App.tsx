@@ -80,6 +80,7 @@ export default function App() {
   const [placementLastCorrect, setPlacementLastCorrect] = useState<boolean | null>(null);
   const [placementSummary, setPlacementSummary] = useState<{ score: number; total: number; startingUnit: number } | null>(null);
   const [entryPath, setEntryPath] = useState<"welcome" | "new" | "returning">("welcome");
+  const [onboardingStep, setOnboardingStep] = useState(0);
   const [nameInput, setNameInput] = useState("");
   const [selectedGoal, setSelectedGoal] = useState<(typeof GOALS)[number] | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<(typeof LEVELS)[number] | null>(null);
@@ -102,6 +103,12 @@ export default function App() {
   useEffect(() => {
     setSelectedBuilderIndices([]);
   }, [currentQuestion?.id]);
+
+  useEffect(() => {
+    if (entryPath !== "welcome") {
+      setOnboardingStep(0);
+    }
+  }, [entryPath]);
 
   useEffect(() => {
     if (!feedback) {
@@ -173,6 +180,35 @@ export default function App() {
       avatar: selectedAvatar,
     });
     startPlacementFlow(selectedLevel);
+  };
+
+  const wizardTotal = 4;
+  const canAdvanceWizard = (() => {
+    if (onboardingStep === 0) return nameInput.trim().length > 0;
+    if (onboardingStep === 1) return selectedLevel !== null;
+    if (onboardingStep === 2) return selectedGoal !== null;
+    if (onboardingStep === 3) return selectedAvatar !== null;
+    return false;
+  })();
+
+  const wizardNext = () => {
+    if (!canAdvanceWizard) return;
+    if (onboardingStep < wizardTotal - 1) {
+      selectionHaptic();
+      setOnboardingStep((step) => Math.min(wizardTotal - 1, step + 1));
+      return;
+    }
+    successHaptic();
+    void completeOnboarding();
+  };
+
+  const wizardBack = () => {
+    tapHaptic();
+    if (onboardingStep === 0) {
+      setEntryPath("welcome");
+      return;
+    }
+    setOnboardingStep((step) => Math.max(0, step - 1));
   };
 
   const handlePlacementAnswer = (choice: string) => {
@@ -658,116 +694,154 @@ export default function App() {
               </View>
             )}
 
+            {entryPath === "returning" && progress.lastProfile ? (
+              <View style={styles.returningCardStandalone}>
+                <Text style={styles.returningTitle}>Welcome back</Text>
+                <View style={styles.returningProfileRow}>
+                  <View style={styles.avatarBadge}>
+                    <Text style={styles.avatarBadgeText}>{progress.lastProfile.avatar}</Text>
+                  </View>
+                  <Text style={styles.returningCopy}>{progress.lastProfile.userName}</Text>
+                </View>
+                <Text style={styles.returningMeta}>
+                  Goal: {progress.lastProfile.goal} | Level: {progress.lastProfile.level}
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    void loginReturningUser();
+                    setAppStage("main");
+                  }}
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    styles.primaryButtonAura,
+                    pressed ? styles.primaryButtonAuraPressed : undefined,
+                  ]}
+                >
+                  <Text style={[styles.primaryButtonLabel, styles.primaryButtonLabelDark]}>Continue as {progress.lastProfile.userName}</Text>
+                </Pressable>
+                <Text style={styles.returningHint}>Or set up a fresh profile below.</Text>
+              </View>
+            ) : null}
+
             {entryPath !== "welcome" && (
               <View style={styles.panel}>
-                <Text style={styles.sectionTitle}>
-                  {entryPath === "new" ? "Create your learning path" : "Welcome back"}
-                </Text>
-                <Text style={styles.sectionCopy}>
-                  Tell us your goal and current level so the app can guide your next steps.
-                </Text>
-
-                {entryPath === "returning" && progress.lastProfile ? (
-                  <View style={styles.returningCard}>
-                    <Text style={styles.returningTitle}>Last profile</Text>
-                    <View style={styles.returningProfileRow}>
-                      <View style={styles.avatarBadge}>
-                        <Text style={styles.avatarBadgeText}>{progress.lastProfile.avatar}</Text>
-                      </View>
-                      <Text style={styles.returningCopy}>{progress.lastProfile.userName}</Text>
-                    </View>
-                    <Text style={styles.returningMeta}>
-                      Goal: {progress.lastProfile.goal} | Level: {progress.lastProfile.level}
-                    </Text>
-                    <Pressable
-                      onPress={() => {
-                        void loginReturningUser();
-                        setAppStage("main");
-                      }}
-                      style={({ pressed }) => [
-                        styles.primaryButton,
-                        pressed ? styles.primaryButtonPressed : undefined,
+                <View style={styles.wizardHeader}>
+                  <Text style={styles.wizardEyebrow}>
+                    Step {onboardingStep + 1} of {wizardTotal}
+                  </Text>
+                  <View style={styles.wizardProgressTrack}>
+                    <View
+                      style={[
+                        styles.wizardProgressFill,
+                        { width: `${((onboardingStep + 1) / wizardTotal) * 100}%` },
                       ]}
-                    >
-                      <Text style={styles.primaryButtonLabel}>Continue as {progress.lastProfile.userName}</Text>
-                    </Pressable>
+                    />
                   </View>
-                ) : null}
+                </View>
 
                 {entryPath === "returning" && !progress.lastProfile ? (
-                  <Text style={styles.sectionCopy}>No saved profile found yet. Create a new profile first.</Text>
+                  <Text style={styles.sectionCopy}>No saved profile yet — let's set one up.</Text>
                 ) : null}
 
-                <View style={styles.formBlock}>
-                  <Text style={styles.fieldLabel}>Your name</Text>
-                  <TextInput
-                    placeholder="Enter your name"
-                    placeholderTextColor={theme.colors.muted}
-                    value={nameInput}
-                    onChangeText={setNameInput}
-                    style={styles.input}
-                  />
-                </View>
-
-                <View style={styles.formBlock}>
-                  <Text style={styles.fieldLabel}>Your goal</Text>
-                  <View style={styles.optionGrid}>
-                    {GOALS.map((goal) => (
-                      <Pressable
-                        key={goal}
-                        onPress={() => setSelectedGoal(goal)}
-                        style={({ pressed }) => [
-                          styles.optionChip,
-                          selectedGoal === goal ? styles.optionChipActive : undefined,
-                          pressed ? styles.optionChipPressed : undefined,
-                        ]}
-                      >
-                        <Text style={[
-                          styles.optionChipLabel,
-                          selectedGoal === goal ? styles.optionChipLabelActive : undefined,
-                        ]}>
-                          {goal}
-                        </Text>
-                      </Pressable>
-                    ))}
+                {onboardingStep === 0 ? (
+                  <View style={styles.wizardStep}>
+                    <Text style={styles.wizardTitle}>What should we call you?</Text>
+                    <Text style={styles.wizardHelper}>This is how you'll show up on leaderboards and friend lists.</Text>
+                    <TextInput
+                      placeholder="Enter your name"
+                      placeholderTextColor={theme.colors.muted}
+                      value={nameInput}
+                      onChangeText={setNameInput}
+                      style={styles.input}
+                      autoFocus
+                      returnKeyType="next"
+                      onSubmitEditing={wizardNext}
+                    />
                   </View>
-                </View>
+                ) : null}
 
-                <View style={styles.formBlock}>
-                  <Text style={styles.fieldLabel}>Current level</Text>
-                  <View style={styles.levelRow}>
-                    {LEVELS.map((level) => (
-                      <Pressable
-                        key={level}
-                        onPress={() => {
-                          setSelectedLevel(level);
-                          setSelectedAvatar((currentAvatar) => currentAvatar ?? avatarOptions[level][0]);
-                        }}
-                        style={({ pressed }) => [
-                          styles.levelPill,
-                          selectedLevel === level ? styles.levelPillActive : undefined,
-                          pressed ? styles.optionChipPressed : undefined,
-                        ]}
-                      >
-                        <Text style={[
-                          styles.levelPillLabel,
-                          selectedLevel === level ? styles.optionChipLabelActive : undefined,
-                        ]}>
-                          {level}
-                        </Text>
-                      </Pressable>
-                    ))}
+                {onboardingStep === 1 ? (
+                  <View style={styles.wizardStep}>
+                    <Text style={styles.wizardTitle}>Where are you starting from?</Text>
+                    <Text style={styles.wizardHelper}>Pick the level that best matches your Urdu right now.</Text>
+                    <View style={styles.levelStack}>
+                      {LEVELS.map((level) => (
+                        <Pressable
+                          key={level}
+                          onPress={() => {
+                            selectionHaptic();
+                            setSelectedLevel(level);
+                            setSelectedAvatar((currentAvatar) => currentAvatar ?? avatarOptions[level][0]);
+                          }}
+                          style={({ pressed }) => [
+                            styles.wizardOption,
+                            selectedLevel === level ? styles.wizardOptionActive : undefined,
+                            pressed ? styles.wizardOptionPressed : undefined,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.wizardOptionLabel,
+                              selectedLevel === level ? styles.wizardOptionLabelActive : undefined,
+                            ]}
+                          >
+                            {level}
+                          </Text>
+                          <Text style={styles.wizardOptionDetail}>
+                            {level === "Beginner"
+                              ? "I'm just getting started."
+                              : level === "Intermediate"
+                              ? "I can hold a basic conversation."
+                              : "I want fluency and nuance."}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
                   </View>
-                </View>
+                ) : null}
 
-                {selectedLevel ? (
-                  <View style={styles.formBlock}>
-                    <Text style={styles.fieldLabel}>Choose a profile picture</Text>
+                {onboardingStep === 2 ? (
+                  <View style={styles.wizardStep}>
+                    <Text style={styles.wizardTitle}>Why are you learning Urdu?</Text>
+                    <Text style={styles.wizardHelper}>We'll tailor the lessons to match your goal.</Text>
+                    <View style={styles.optionGrid}>
+                      {GOALS.map((goal) => (
+                        <Pressable
+                          key={goal}
+                          onPress={() => {
+                            selectionHaptic();
+                            setSelectedGoal(goal);
+                          }}
+                          style={({ pressed }) => [
+                            styles.optionChip,
+                            selectedGoal === goal ? styles.optionChipActive : undefined,
+                            pressed ? styles.optionChipPressed : undefined,
+                          ]}
+                        >
+                          <Text style={[
+                            styles.optionChipLabel,
+                            selectedGoal === goal ? styles.optionChipLabelActive : undefined,
+                          ]}>
+                            {goal}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
+
+                {onboardingStep === 3 ? (
+                  <View style={styles.wizardStep}>
+                    <Text style={styles.wizardTitle}>Pick a profile picture</Text>
+                    <Text style={styles.wizardHelper}>You can change this anytime in Profile.</Text>
                     <View style={styles.avatarPickerRow}>
-                      {avatarOptions[selectedLevel].map((avatar) => (
+                      {(selectedLevel ? avatarOptions[selectedLevel] : avatarOptions.Beginner).map((avatar) => (
                         <Pressable
                           key={avatar}
-                          onPress={() => setSelectedAvatar(avatar)}
+                          onPress={() => {
+                            selectionHaptic();
+                            setSelectedAvatar(avatar);
+                          }}
                           style={({ pressed }) => [
                             styles.avatarChoice,
                             selectedAvatar === avatar ? styles.avatarChoiceActive : undefined,
@@ -782,19 +856,24 @@ export default function App() {
                 ) : null}
 
                 <Pressable
-                  onPress={completeOnboarding}
-                  disabled={!selectedGoal || !selectedLevel}
+                  onPress={wizardNext}
+                  disabled={!canAdvanceWizard}
                   style={({ pressed }) => [
                     styles.primaryButton,
-                    !selectedGoal || !selectedLevel ? styles.disabledButton : undefined,
-                    pressed && selectedGoal && selectedLevel ? styles.primaryButtonPressed : undefined,
+                    styles.primaryButtonAura,
+                    !canAdvanceWizard ? styles.disabledButton : undefined,
+                    pressed && canAdvanceWizard ? styles.primaryButtonAuraPressed : undefined,
                   ]}
                 >
-                  <Text style={styles.primaryButtonLabel}>Continue</Text>
+                  <Text style={[styles.primaryButtonLabel, styles.primaryButtonLabelDark]}>
+                    {onboardingStep === wizardTotal - 1 ? "Start placement" : "Continue"}
+                  </Text>
                 </Pressable>
 
-                <Pressable onPress={() => setEntryPath("welcome")} style={styles.textButton}>
-                  <Text style={styles.textButtonLabel}>Back</Text>
+                <Pressable onPress={wizardBack} style={styles.textButton}>
+                  <Text style={styles.textButtonLabel}>
+                    {onboardingStep === 0 ? "Back" : "Previous step"}
+                  </Text>
                 </Pressable>
               </View>
             )}
@@ -2962,6 +3041,90 @@ const styles = StyleSheet.create({
   },
   eyebrowOnDark: {
     color: theme.colors.aura,
+  },
+  returningCardStandalone: {
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.lg,
+    padding: 20,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    width: "100%",
+    ...theme.shadows.lift,
+  },
+  returningHint: {
+    color: theme.colors.muted,
+    fontSize: 13,
+    textAlign: "center",
+    marginTop: 4,
+  },
+  wizardHeader: {
+    gap: 8,
+    marginBottom: 4,
+  },
+  wizardEyebrow: {
+    color: theme.colors.brandDark,
+    fontWeight: theme.weights.extrabold,
+    fontSize: 12,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  wizardProgressTrack: {
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: theme.colors.surfaceAlt,
+    overflow: "hidden",
+  },
+  wizardProgressFill: {
+    height: "100%",
+    backgroundColor: theme.colors.aura,
+    borderRadius: 999,
+  },
+  wizardStep: {
+    gap: 12,
+  },
+  wizardTitle: {
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: theme.weights.display,
+    color: theme.colors.ink,
+  },
+  wizardHelper: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: theme.colors.muted,
+  },
+  wizardOption: {
+    backgroundColor: theme.colors.card,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 4,
+  },
+  wizardOptionActive: {
+    borderColor: theme.colors.brand,
+    backgroundColor: theme.colors.brandSoft,
+  },
+  wizardOptionPressed: {
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  wizardOptionLabel: {
+    color: theme.colors.ink,
+    fontSize: 18,
+    fontWeight: theme.weights.extrabold,
+  },
+  wizardOptionLabelActive: {
+    color: theme.colors.brandDark,
+  },
+  wizardOptionDetail: {
+    color: theme.colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  levelStack: {
+    gap: 10,
   },
 });
 
