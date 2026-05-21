@@ -19,6 +19,7 @@ import {
   useFonts,
 } from "@expo-google-fonts/noto-nastaliq-urdu";
 
+import { BottomNav, type BottomTab } from "./components/BottomNav";
 import { ChoiceButton } from "./components/ChoiceButton";
 import { AuroraBackground } from "./components/ui/AuroraBackground";
 import { BoardConnector } from "./components/ui/BoardConnector";
@@ -378,6 +379,33 @@ export default function App() {
     }
   };
 
+  const activeBottomTab: BottomTab = (() => {
+    if (mainView === "leaderboard") return "league";
+    if (mainView === "findFriends") return "friends";
+    if (mainView === "editProfile") return "profile";
+    return "learn";
+  })();
+
+  const handleBottomTabChange = (tab: BottomTab) => {
+    setProfileMenuOpen(false);
+    setPreviewLessonId(null);
+    if (tab === "learn") {
+      setMainView("home");
+      return;
+    }
+    if (tab === "league") {
+      setMainView("leaderboard");
+      return;
+    }
+    if (tab === "friends") {
+      setFriendIdInput("");
+      setFriendLookupMessage(null);
+      setMainView("findFriends");
+      return;
+    }
+    openProfileEditor();
+  };
+
   const addBuilderWord = (wordIndex: number) => {
     selectionHaptic();
     setSelectedBuilderIndices((current) => [...current, wordIndex]);
@@ -491,7 +519,7 @@ export default function App() {
     <SafeAreaView style={[styles.safeArea, onDarkBg ? styles.safeAreaDark : undefined]}>
       <StatusBar barStyle={onDarkBg ? "light-content" : "dark-content"} />
       <AuroraBackground style={styles.appBackdrop} variant={onDarkBg ? "dark" : "default"}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
         <View style={styles.topBar}>
           <View style={styles.topBarLeft}>
             {appStage === "landing" ? null : headerState.action ? (
@@ -1580,6 +1608,9 @@ export default function App() {
           </>
         )}
       </ScrollView>
+      {appStage === "main" && !session && !previewLesson ? (
+        <BottomNav active={activeBottomTab} onChange={handleBottomTabChange} />
+      ) : null}
       </AuroraBackground>
     </SafeAreaView>
   );
@@ -1591,6 +1622,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.backgroundDeep,
   },
   appBackdrop: {
+    flex: 1,
+  },
+  scroll: {
     flex: 1,
   },
   container: {
