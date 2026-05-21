@@ -40,6 +40,13 @@ const GOALS = [
 ] as const;
 
 const LEVELS = ["Beginner", "Intermediate", "Advanced"] as const;
+const SUGGESTED_FRIENDS = [
+  { id: "UA-SUGG-01", name: "Imran from Karachi", avatar: "🧑‍🎓", mutual: 3, level: "Intermediate" },
+  { id: "UA-SUGG-02", name: "Nadia from London", avatar: "🧕", mutual: 2, level: "Beginner" },
+  { id: "UA-SUGG-03", name: "Bilal from Dubai", avatar: "🧔", mutual: 4, level: "Advanced" },
+  { id: "UA-SUGG-04", name: "Saima from Lahore", avatar: "👩‍💼", mutual: 1, level: "Intermediate" },
+  { id: "UA-SUGG-05", name: "Faraz from Boston", avatar: "🧑‍💻", mutual: 2, level: "Beginner" },
+] as const;
 const logoImage = require("./assets/urdu-aura-logo.png");
 const BOARD_LANES = [
   ["flex-start", "flex-end", "center", "flex-end", "flex-start"],
@@ -87,11 +94,13 @@ export default function App() {
   const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null);
   const [selectedBuilderIndices, setSelectedBuilderIndices] = useState<number[]>([]);
   const [previewLessonId, setPreviewLessonId] = useState<string | null>(null);
-  const [mainView, setMainView] = useState<"home" | "practice" | "leaderboard" | "editProfile" | "findFriends">("home");
+  const [mainView, setMainView] = useState<"home" | "practice" | "leaderboard" | "editProfile" | "findFriends" | "profile">("home");
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [leaderboardFilter, setLeaderboardFilter] = useState<(typeof LEADERBOARD_FILTERS)[number]>("All players");
   const [friendIdInput, setFriendIdInput] = useState("");
   const [friendLookupMessage, setFriendLookupMessage] = useState<string | null>(null);
+  const [friendSearch, setFriendSearch] = useState("");
+  const [showFriendIdAdd, setShowFriendIdAdd] = useState(false);
   const [fontsLoaded] = useFonts({
     NotoNastaliqUrdu_400Regular,
     NotoNastaliqUrdu_700Bold,
@@ -418,7 +427,7 @@ export default function App() {
   const activeBottomTab: BottomTab = (() => {
     if (mainView === "leaderboard") return "league";
     if (mainView === "findFriends") return "friends";
-    if (mainView === "editProfile") return "profile";
+    if (mainView === "editProfile" || mainView === "profile") return "profile";
     return "learn";
   })();
 
@@ -439,7 +448,7 @@ export default function App() {
       setMainView("findFriends");
       return;
     }
-    openProfileEditor();
+    setMainView("profile");
   };
 
   const addBuilderWord = (wordIndex: number) => {
@@ -508,13 +517,19 @@ export default function App() {
     if (mainView === "editProfile") {
       return {
         label: "Back",
-        action: () => setMainView("home"),
+        action: () => setMainView("profile"),
       };
     }
     if (mainView === "findFriends") {
       return {
         label: "Back",
         action: () => setMainView("home"),
+      };
+    }
+    if (mainView === "profile") {
+      return {
+        label: "",
+        action: null as null | (() => void),
       };
     }
     if (session) {
@@ -1254,63 +1269,240 @@ export default function App() {
                     ))}
                   </View>
                 ) : mainView === "findFriends" ? (
-                  <View style={styles.panel}>
-                    <Text style={styles.sectionTitle}>Find friends</Text>
-                    <Text style={styles.sectionCopy}>
-                      Add friends using their Urdu Aura ID to see them in your friends leaderboard.
-                    </Text>
-                    <View style={styles.friendIdCard}>
-                      <Text style={styles.friendIdLabel}>Your player ID</Text>
-                      <Text style={styles.friendIdValue}>{progress.playerId}</Text>
-                    </View>
-                    <View style={styles.formBlock}>
-                      <Text style={styles.fieldLabel}>Friend ID</Text>
-                      <TextInput
-                        placeholder="Enter a player ID like UA-284193"
-                        placeholderTextColor={theme.colors.muted}
-                        value={friendIdInput}
-                        onChangeText={setFriendIdInput}
-                        autoCapitalize="characters"
-                        style={styles.input}
-                      />
-                    </View>
-                    <Pressable
-                      onPress={() => void handleAddFriend()}
-                      disabled={!friendIdInput.trim()}
-                      style={({ pressed }) => [
-                        styles.primaryButton,
-                        !friendIdInput.trim() ? styles.disabledButton : undefined,
-                        pressed && friendIdInput.trim() ? styles.primaryButtonPressed : undefined,
-                      ]}
-                    >
-                      <Text style={styles.primaryButtonLabel}>Add friend</Text>
-                    </Pressable>
-                    {friendLookupMessage ? (
-                      <View style={styles.friendMessageCard}>
-                        <Text style={styles.friendMessageText}>{friendLookupMessage}</Text>
-                      </View>
-                    ) : null}
-                    <View style={styles.rankSection}>
-                      <Text style={styles.rankSectionTitle}>Your friends</Text>
-                      {progress.friends.length > 0 ? progress.friends.map((friend) => (
-                        <View key={friend.id} style={styles.rankCard}>
-                          <Text style={styles.rankMedal}>{friend.avatar}</Text>
-                          <View style={styles.rankMeta}>
-                            <Text style={styles.rankName}>{friend.name}</Text>
-                            <Text style={styles.rankDetail}>{friend.location} | ID {friend.id}</Text>
-                          </View>
-                          <Text style={styles.rankScore}>{friend.xp} XP</Text>
+                  (() => {
+                    const search = friendSearch.trim().toLowerCase();
+                    const filteredFriends = progress.friends.filter((friend) =>
+                      search.length === 0 ||
+                      friend.name.toLowerCase().includes(search) ||
+                      friend.location.toLowerCase().includes(search),
+                    );
+                    const filteredSuggestions = SUGGESTED_FRIENDS.filter((suggestion) =>
+                      (search.length === 0 || suggestion.name.toLowerCase().includes(search)) &&
+                      !progress.friends.some((friend) => friend.id === suggestion.id),
+                    );
+                    return (
+                      <>
+                        <View style={styles.friendsSearchCard}>
+                          <Text style={styles.friendsSearchIcon}>🔍</Text>
+                          <TextInput
+                            placeholder="Search friends and suggestions"
+                            placeholderTextColor={theme.colors.muted}
+                            value={friendSearch}
+                            onChangeText={setFriendSearch}
+                            style={styles.friendsSearchInput}
+                          />
                         </View>
-                      )) : (
-                        <Text style={styles.sectionCopy}>No friends added yet.</Text>
-                      )}
+
+                        <View style={styles.panel}>
+                          <View style={styles.friendSectionHeader}>
+                            <Text style={styles.sectionTitle}>Your friends</Text>
+                            <Pressable
+                              onPress={() => {
+                                tapHaptic();
+                                setShowFriendIdAdd((open) => !open);
+                              }}
+                              style={({ pressed }) => [
+                                styles.friendIdToggle,
+                                pressed ? styles.friendIdTogglePressed : undefined,
+                              ]}
+                            >
+                              <Text style={styles.friendIdToggleLabel}>
+                                {showFriendIdAdd ? "Close" : "+ Add by ID"}
+                              </Text>
+                            </Pressable>
+                          </View>
+
+                          {showFriendIdAdd ? (
+                            <View style={styles.friendIdAddBlock}>
+                              <Text style={styles.friendIdLabel}>Your player ID · {progress.playerId}</Text>
+                              <TextInput
+                                placeholder="Enter a player ID like UA-284193"
+                                placeholderTextColor={theme.colors.muted}
+                                value={friendIdInput}
+                                onChangeText={setFriendIdInput}
+                                autoCapitalize="characters"
+                                style={styles.input}
+                              />
+                              <Pressable
+                                onPress={() => void handleAddFriend()}
+                                disabled={!friendIdInput.trim()}
+                                style={({ pressed }) => [
+                                  styles.primaryButton,
+                                  !friendIdInput.trim() ? styles.disabledButton : undefined,
+                                  pressed && friendIdInput.trim() ? styles.primaryButtonPressed : undefined,
+                                ]}
+                              >
+                                <Text style={styles.primaryButtonLabel}>Add friend</Text>
+                              </Pressable>
+                              {friendLookupMessage ? (
+                                <View style={styles.friendMessageCard}>
+                                  <Text style={styles.friendMessageText}>{friendLookupMessage}</Text>
+                                </View>
+                              ) : null}
+                            </View>
+                          ) : null}
+
+                          {filteredFriends.length > 0 ? filteredFriends.map((friend) => (
+                            <View key={friend.id} style={styles.friendRow}>
+                              <View style={styles.friendAvatar}>
+                                <Text style={styles.friendAvatarText}>{friend.avatar}</Text>
+                              </View>
+                              <View style={styles.friendMeta}>
+                                <Text style={styles.friendName}>{friend.name}</Text>
+                                <Text style={styles.friendDetail}>
+                                  {friend.location} · {friend.xp} XP · {friend.streak}🔥
+                                </Text>
+                              </View>
+                            </View>
+                          )) : (
+                            <Text style={styles.sectionCopy}>
+                              {search ? "No friends match that search." : "No friends added yet — try a suggestion below."}
+                            </Text>
+                          )}
+                        </View>
+
+                        <View style={styles.panel}>
+                          <Text style={styles.sectionTitle}>Suggested for you</Text>
+                          <Text style={styles.sectionCopy}>People learning Urdu in your network.</Text>
+                          {filteredSuggestions.length > 0 ? filteredSuggestions.map((suggestion) => (
+                            <View key={suggestion.id} style={styles.friendRow}>
+                              <View style={styles.friendAvatar}>
+                                <Text style={styles.friendAvatarText}>{suggestion.avatar}</Text>
+                              </View>
+                              <View style={styles.friendMeta}>
+                                <Text style={styles.friendName}>{suggestion.name}</Text>
+                                <Text style={styles.friendDetail}>
+                                  {suggestion.level} · {suggestion.mutual} mutual {suggestion.mutual === 1 ? "friend" : "friends"}
+                                </Text>
+                              </View>
+                              <Pressable
+                                onPress={() => {
+                                  setFriendIdInput(suggestion.id);
+                                  setShowFriendIdAdd(true);
+                                  selectionHaptic();
+                                  setFriendLookupMessage(`Tap "Add friend" to add ${suggestion.name}`);
+                                }}
+                                style={({ pressed }) => [
+                                  styles.friendAddChip,
+                                  pressed ? styles.friendAddChipPressed : undefined,
+                                ]}
+                              >
+                                <Text style={styles.friendAddChipLabel}>Add</Text>
+                              </Pressable>
+                            </View>
+                          )) : (
+                            <Text style={styles.sectionCopy}>No suggestions match that search.</Text>
+                          )}
+                        </View>
+                      </>
+                    );
+                  })()
+                ) : mainView === "profile" ? (
+                  <>
+                    <View style={styles.profileHeroCard}>
+                      <View style={styles.profileHeroAvatar}>
+                        <Text style={styles.profileHeroAvatarText}>{progress.avatar ?? "🐱"}</Text>
+                      </View>
+                      <Text style={styles.profileHeroName}>{progress.userName}</Text>
+                      <Text style={styles.profileHeroMeta}>
+                        {progress.level ?? "Beginner"} · {progress.goal ?? "Build confidence"}
+                      </Text>
+                      <Text style={styles.profileHeroId}>Player ID · {progress.playerId}</Text>
                     </View>
-                  </View>
+
+                    <View style={styles.profileStatsRow}>
+                      <View style={[styles.profileStatChip, styles.profileStatChipFire]}>
+                        <Text style={styles.profileStatIcon}>🔥</Text>
+                        <Text style={styles.profileStatValue}>{progress.streak}</Text>
+                        <Text style={styles.profileStatLabel}>Day streak</Text>
+                      </View>
+                      <View style={[styles.profileStatChip, styles.profileStatChipAura]}>
+                        <Text style={styles.profileStatIcon}>⚡</Text>
+                        <Text style={styles.profileStatValue}>{progress.xp}</Text>
+                        <Text style={styles.profileStatLabel}>Total XP</Text>
+                      </View>
+                      <View style={[styles.profileStatChip, styles.profileStatChipHeart]}>
+                        <Text style={styles.profileStatIcon}>❤️</Text>
+                        <Text style={styles.profileStatValue}>{progress.hearts}</Text>
+                        <Text style={styles.profileStatLabel}>Hearts</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.panel}>
+                      <Text style={styles.sectionTitle}>Achievements</Text>
+                      <Text style={styles.sectionCopy}>Unlock badges as you build your streak and master units.</Text>
+                      <View style={styles.achievementGrid}>
+                        {[
+                          { emoji: "👣", label: "First Steps", unlocked: progress.completedLessons.length > 0, hint: "Complete your first lesson" },
+                          { emoji: "🔥", label: "Streak Starter", unlocked: progress.streak >= 3, hint: "Reach a 3-day streak" },
+                          { emoji: "📚", label: "Bookworm", unlocked: progress.completedLessons.length >= 5, hint: "Finish 5 lessons" },
+                          { emoji: "⚡", label: "XP Climber", unlocked: progress.xp >= 100, hint: "Earn 100 XP" },
+                          { emoji: "🏆", label: "Marathon", unlocked: progress.streak >= 7, hint: "Reach a 7-day streak" },
+                          { emoji: "🤝", label: "Friend Magnet", unlocked: progress.friends.length >= 3, hint: "Add 3 friends" },
+                          { emoji: "🎯", label: "Sharpshooter", unlocked: progress.placement?.score === progress.placement?.total && progress.placement !== null, hint: "Ace the placement test" },
+                          { emoji: "🌟", label: "Aura Master", unlocked: progress.xp >= 500, hint: "Earn 500 XP" },
+                        ].map((badge) => (
+                          <View
+                            key={badge.label}
+                            style={[
+                              styles.achievementBadge,
+                              !badge.unlocked ? styles.achievementBadgeLocked : undefined,
+                            ]}
+                          >
+                            <Text style={[styles.achievementEmoji, !badge.unlocked ? styles.achievementEmojiLocked : undefined]}>
+                              {badge.unlocked ? badge.emoji : "🔒"}
+                            </Text>
+                            <Text style={[styles.achievementLabel, !badge.unlocked ? styles.achievementLabelLocked : undefined]}>
+                              {badge.label}
+                            </Text>
+                            <Text style={styles.achievementHint}>{badge.hint}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+
+                    <View style={styles.panel}>
+                      <Text style={styles.sectionTitle}>Settings</Text>
+                      <Pressable
+                        onPress={openProfileEditor}
+                        style={({ pressed }) => [
+                          styles.profileAction,
+                          pressed ? styles.profileActionPressed : undefined,
+                        ]}
+                      >
+                        <Text style={styles.profileActionLabel}>Edit profile</Text>
+                        <Text style={styles.profileActionChevron}>›</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          tapHaptic();
+                          void retakePlacement();
+                        }}
+                        style={({ pressed }) => [
+                          styles.profileAction,
+                          pressed ? styles.profileActionPressed : undefined,
+                        ]}
+                      >
+                        <Text style={styles.profileActionLabel}>Retake placement test</Text>
+                        <Text style={styles.profileActionChevron}>›</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={handleLogout}
+                        style={({ pressed }) => [
+                          styles.profileAction,
+                          pressed ? styles.profileActionPressed : undefined,
+                        ]}
+                      >
+                        <Text style={[styles.profileActionLabel, styles.profileActionDanger]}>Log out</Text>
+                        <Text style={[styles.profileActionChevron, styles.profileActionDanger]}>›</Text>
+                      </Pressable>
+                    </View>
+                  </>
                 ) : mainView === "editProfile" ? (
                   <View style={styles.panel}>
                     <Text style={styles.sectionTitle}>Edit your profile</Text>
                     <Text style={styles.sectionCopy}>
-                      Update your name, goal, level, and avatar from your profile menu.
+                      Update your name, goal, level, and avatar.
                     </Text>
                     <View style={styles.friendIdCard}>
                       <Text style={styles.friendIdLabel}>Your player ID</Text>
@@ -3125,6 +3317,260 @@ const styles = StyleSheet.create({
   },
   levelStack: {
     gap: 10,
+  },
+  profileHeroCard: {
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.lg,
+    padding: 22,
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    width: "100%",
+    ...theme.shadows.lift,
+  },
+  profileHeroAvatar: {
+    width: 88,
+    height: 88,
+    borderRadius: 999,
+    backgroundColor: theme.colors.brandSoft,
+    borderWidth: 3,
+    borderColor: theme.colors.aura,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  profileHeroAvatarText: {
+    fontSize: 44,
+  },
+  profileHeroName: {
+    fontSize: 22,
+    fontWeight: theme.weights.display,
+    color: theme.colors.ink,
+    textAlign: "center",
+  },
+  profileHeroMeta: {
+    fontSize: 14,
+    color: theme.colors.brandDark,
+    fontWeight: theme.weights.bold,
+    textAlign: "center",
+  },
+  profileHeroId: {
+    fontSize: 11,
+    color: theme.colors.muted,
+    fontWeight: theme.weights.semibold,
+    letterSpacing: 0.6,
+    marginTop: 4,
+  },
+  profileStatsRow: {
+    flexDirection: "row",
+    gap: 10,
+    width: "100%",
+  },
+  profileStatChip: {
+    flex: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 10,
+    borderRadius: theme.radius.md,
+    alignItems: "center",
+    gap: 2,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.card,
+  },
+  profileStatChipFire: {
+    backgroundColor: theme.colors.fireSoft,
+    borderColor: theme.colors.fire,
+  },
+  profileStatChipAura: {
+    backgroundColor: theme.colors.auraSoft,
+    borderColor: theme.colors.auraDeep,
+  },
+  profileStatChipHeart: {
+    backgroundColor: theme.colors.heartSoft,
+    borderColor: theme.colors.heart,
+  },
+  profileStatIcon: {
+    fontSize: 20,
+  },
+  profileStatValue: {
+    fontSize: 22,
+    fontWeight: theme.weights.display,
+    color: theme.colors.ink,
+  },
+  profileStatLabel: {
+    fontSize: 11,
+    color: theme.colors.muted,
+    fontWeight: theme.weights.bold,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  achievementGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  achievementBadge: {
+    width: "47%",
+    backgroundColor: theme.colors.brandSoft,
+    borderRadius: theme.radius.md,
+    padding: 14,
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1,
+    borderColor: theme.colors.brandTint,
+  },
+  achievementBadgeLocked: {
+    backgroundColor: theme.colors.lockedSurface,
+    borderColor: theme.colors.border,
+    opacity: 0.7,
+  },
+  achievementEmoji: {
+    fontSize: 28,
+  },
+  achievementEmojiLocked: {
+    opacity: 0.5,
+  },
+  achievementLabel: {
+    fontSize: 13,
+    fontWeight: theme.weights.extrabold,
+    color: theme.colors.ink,
+    textAlign: "center",
+  },
+  achievementLabelLocked: {
+    color: theme.colors.muted,
+  },
+  achievementHint: {
+    fontSize: 10,
+    color: theme.colors.muted,
+    textAlign: "center",
+    lineHeight: 14,
+  },
+  profileAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 4,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  profileActionPressed: {
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  profileActionLabel: {
+    color: theme.colors.ink,
+    fontWeight: theme.weights.bold,
+    fontSize: 15,
+  },
+  profileActionChevron: {
+    color: theme.colors.muted,
+    fontSize: 22,
+    fontWeight: theme.weights.bold,
+  },
+  profileActionDanger: {
+    color: theme.colors.danger,
+  },
+  friendsSearchCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: theme.colors.card,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    gap: 10,
+    width: "100%",
+    ...theme.shadows.soft,
+  },
+  friendsSearchIcon: {
+    fontSize: 16,
+  },
+  friendsSearchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: theme.colors.ink,
+    paddingVertical: 8,
+  },
+  friendSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  friendIdToggle: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: theme.colors.brandSoft,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.colors.brandTint,
+  },
+  friendIdTogglePressed: {
+    backgroundColor: theme.colors.brandTint,
+  },
+  friendIdToggleLabel: {
+    color: theme.colors.brandDark,
+    fontWeight: theme.weights.extrabold,
+    fontSize: 13,
+  },
+  friendIdAddBlock: {
+    gap: 10,
+    paddingTop: 6,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  friendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  friendAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    backgroundColor: theme.colors.brandSoft,
+    borderWidth: 1,
+    borderColor: theme.colors.brandTint,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  friendAvatarText: {
+    fontSize: 22,
+  },
+  friendMeta: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  friendName: {
+    color: theme.colors.ink,
+    fontSize: 15,
+    fontWeight: theme.weights.extrabold,
+  },
+  friendDetail: {
+    color: theme.colors.muted,
+    fontSize: 12,
+  },
+  friendAddChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: theme.colors.aura,
+    borderRadius: 999,
+    ...theme.shadows.glow,
+  },
+  friendAddChipPressed: {
+    backgroundColor: theme.colors.auraDeep,
+  },
+  friendAddChipLabel: {
+    color: theme.colors.bgEmerald,
+    fontWeight: theme.weights.extrabold,
+    fontSize: 13,
   },
 });
 
