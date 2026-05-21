@@ -903,24 +903,23 @@ export default function App() {
 
             if (isResults && placementSummary) {
               const accuracy = total > 0 ? Math.round((placementSummary.score / total) * 100) : 0;
+              const tier =
+                accuracy >= 80 ? { emoji: "🏆", title: "Mastery start", copy: "You've got serious Urdu chops — we'll skip ahead so the lessons stay challenging." }
+                : accuracy >= 50 ? { emoji: "🌟", title: "Builder start", copy: "Solid foundation. We'll start mid-curriculum so you keep growing." }
+                : { emoji: "🌱", title: "Starter start", copy: "Perfect starting point — we'll begin with the essentials." };
               return (
-                <View style={styles.placementResultsCard}>
-                  <Text style={styles.eyebrow}>Placement complete</Text>
-                  <Text style={styles.title}>You scored {placementSummary.score} / {placementSummary.total}</Text>
-                  <View style={styles.placementMeterRow}>
-                    <View style={styles.placementMeterTrack}>
-                      <View style={[styles.placementMeterFill, { width: `${accuracy}%` }]} />
-                    </View>
-                    <Text style={styles.placementMeterValue}>{accuracy}%</Text>
+                <View style={styles.placementResultHero}>
+                  <Text style={styles.placementResultEmoji}>{tier.emoji}</Text>
+                  <Text style={styles.placementResultTitle}>{tier.title}</Text>
+                  <Text style={styles.placementResultScore}>{placementSummary.score} / {placementSummary.total} correct</Text>
+                  <View style={styles.placementResultMeterTrack}>
+                    <View style={[styles.placementResultMeterFill, { width: `${accuracy}%` }]} />
                   </View>
-                  <View style={styles.placementResultBlock}>
+                  <Text style={styles.placementResultAccuracy}>{accuracy}% accuracy</Text>
+                  <View style={styles.placementResultUnitBlock}>
                     <Text style={styles.placementResultLabel}>Starting unit</Text>
-                    <Text style={styles.placementResultValue}>Unit {placementSummary.startingUnit}</Text>
-                    <Text style={styles.placementResultHint}>
-                      {placementSummary.startingUnit === 1
-                        ? "We'll begin with the foundations so you build a confident base."
-                        : `We've marked the first ${placementSummary.startingUnit - 1} unit${placementSummary.startingUnit - 1 === 1 ? "" : "s"} as complete so you start where it matters.`}
-                    </Text>
+                    <Text style={styles.placementResultUnitValue}>Unit {placementSummary.startingUnit}</Text>
+                    <Text style={styles.placementResultCopy}>{tier.copy}</Text>
                   </View>
                   <Pressable
                     onPress={() => {
@@ -929,10 +928,11 @@ export default function App() {
                     }}
                     style={({ pressed }) => [
                       styles.primaryButton,
-                      pressed ? styles.primaryButtonPressed : undefined,
+                      styles.primaryButtonAura,
+                      pressed ? styles.primaryButtonAuraPressed : undefined,
                     ]}
                   >
-                    <Text style={styles.primaryButtonLabel}>Continue to home</Text>
+                    <Text style={[styles.primaryButtonLabel, styles.primaryButtonLabelDark]}>Continue to home</Text>
                   </Pressable>
                 </View>
               );
@@ -1724,23 +1724,41 @@ export default function App() {
             )}
 
             {session && currentQuestion && !sessionFinished && (
-              <View style={styles.panel}>
-                <Text style={styles.sectionTitle}>
-                  {session.mode === "review" ? "Review mode" : "Lesson checkpoint"}
+              <View style={styles.lessonShell}>
+                <View style={styles.lessonHeader}>
+                  <View style={styles.lessonProgressTrack}>
+                    <View
+                      style={[
+                        styles.lessonProgressFill,
+                        {
+                          width: `${Math.min(100, ((session.currentIndex + 1) / Math.max(1, session.questions.length)) * 100)}%`,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <View style={styles.lessonHeartsBadge}>
+                    <Text style={styles.lessonHeartsIcon}>❤️</Text>
+                    <Text style={styles.lessonHeartsValue}>{progress.hearts}</Text>
+                  </View>
+                </View>
+                <Text style={styles.lessonEyebrow}>
+                  {session.mode === "review" ? "Review" : "Lesson"} · {session.currentIndex + 1} of {session.questions.length}
                 </Text>
-                <Text style={styles.progressText}>
-                  Question {session.currentIndex + 1} of {session.questions.length}
-                </Text>
-                <Text style={styles.question}>{currentQuestion.promptEn}</Text>
-                <Text style={styles.helper}>Answer using Urdu shown as script and Roman Urdu.</Text>
+                <Text style={styles.lessonQuestion}>{currentQuestion.promptEn}</Text>
+                {currentQuestion.helperText ? (
+                  <Text style={styles.lessonHelper}>{currentQuestion.helperText}</Text>
+                ) : (
+                  <Text style={styles.lessonHelper}>Tap the matching Urdu phrase.</Text>
+                )}
                 <Pressable
                   onPress={() => void playPromptAudio(currentQuestion.audioText)}
                   style={({ pressed }) => [
-                    styles.audioButton,
-                    pressed ? styles.audioButtonPressed : undefined,
+                    styles.lessonAudioButton,
+                    pressed ? styles.lessonAudioButtonPressed : undefined,
                   ]}
                 >
-                  <Text style={styles.audioButtonLabel}>Play Urdu audio</Text>
+                  <Text style={styles.lessonAudioIcon}>🔊</Text>
+                  <Text style={styles.lessonAudioLabel}>Play Urdu audio</Text>
                 </Pressable>
 
                 {currentQuestion.type === "buildSentence" ? (
@@ -1851,23 +1869,62 @@ export default function App() {
             )}
 
             {session && (sessionFinished || (!currentQuestion && session.questions.length === 0)) && (
-              <View style={styles.panel}>
-                <Text style={styles.sectionTitle}>Lesson test complete</Text>
-                <Text style={styles.sectionCopy}>
+              <View style={styles.lessonCompleteCard}>
+                <Text style={styles.lessonCompleteEmoji}>
                   {session.questions.length === 0
-                    ? "You have cleared your review queue. Keep practicing lessons to add more words."
-                    : `You answered ${session.correctAnswers} out of ${session.questions.length} checkpoint questions correctly.`}
+                    ? "🎯"
+                    : session.correctAnswers === session.questions.length
+                    ? "🏆"
+                    : session.correctAnswers >= Math.ceil(session.questions.length * 0.6)
+                    ? "🌟"
+                    : "💪"}
                 </Text>
-                {feedback && (
-                  <Text style={styles.sectionCopy}>
-                    {feedback.wasCorrect ? "Nice work." : `Last answer: ${formatUrduAnswer(feedback.correctAnswer)}.`}
+                <Text style={styles.lessonCompleteTitle}>
+                  {session.questions.length === 0 ? "Review cleared" : "Lesson complete"}
+                </Text>
+                <Text style={styles.lessonCompleteScore}>
+                  {session.questions.length === 0
+                    ? "Your review queue is empty for now."
+                    : `${session.correctAnswers} / ${session.questions.length} correct`}
+                </Text>
+                {session.questions.length > 0 ? (
+                  <View style={styles.lessonCompleteMeterTrack}>
+                    <View
+                      style={[
+                        styles.lessonCompleteMeterFill,
+                        { width: `${(session.correctAnswers / Math.max(1, session.questions.length)) * 100}%` },
+                      ]}
+                    />
+                  </View>
+                ) : null}
+                <View style={styles.lessonCompleteStatsRow}>
+                  <View style={styles.lessonCompleteStat}>
+                    <Text style={styles.lessonCompleteStatIcon}>⚡</Text>
+                    <Text style={styles.lessonCompleteStatValue}>+{session.correctAnswers * session.xpPerCorrect}</Text>
+                    <Text style={styles.lessonCompleteStatLabel}>XP earned</Text>
+                  </View>
+                  <View style={styles.lessonCompleteStat}>
+                    <Text style={styles.lessonCompleteStatIcon}>❤️</Text>
+                    <Text style={styles.lessonCompleteStatValue}>{progress.hearts}</Text>
+                    <Text style={styles.lessonCompleteStatLabel}>Hearts left</Text>
+                  </View>
+                  <View style={styles.lessonCompleteStat}>
+                    <Text style={styles.lessonCompleteStatIcon}>🔥</Text>
+                    <Text style={styles.lessonCompleteStatValue}>{progress.streak}</Text>
+                    <Text style={styles.lessonCompleteStatLabel}>Streak</Text>
+                  </View>
+                </View>
+                {feedback && !feedback.wasCorrect ? (
+                  <Text style={styles.lessonCompleteHint}>
+                    Last answer: {formatUrduAnswer(feedback.correctAnswer)}
                   </Text>
-                )}
+                ) : null}
                 <Pressable onPress={resetSession} style={({ pressed }) => [
                   styles.primaryButton,
-                  pressed ? styles.primaryButtonPressed : undefined,
+                  styles.primaryButtonAura,
+                  pressed ? styles.primaryButtonAuraPressed : undefined,
                 ]}>
-                  <Text style={styles.primaryButtonLabel}>Back to home</Text>
+                  <Text style={[styles.primaryButtonLabel, styles.primaryButtonLabelDark]}>Continue learning</Text>
                 </Pressable>
               </View>
             )}
@@ -3571,6 +3628,235 @@ const styles = StyleSheet.create({
     color: theme.colors.bgEmerald,
     fontWeight: theme.weights.extrabold,
     fontSize: 13,
+  },
+  lessonShell: {
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.lg,
+    padding: 20,
+    gap: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    width: "100%",
+    ...theme.shadows.lift,
+  },
+  lessonHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  lessonProgressTrack: {
+    flex: 1,
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: theme.colors.surfaceAlt,
+    overflow: "hidden",
+  },
+  lessonProgressFill: {
+    height: "100%",
+    backgroundColor: theme.colors.aura,
+    borderRadius: 999,
+  },
+  lessonHeartsBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: theme.colors.heartSoft,
+    borderWidth: 1,
+    borderColor: theme.colors.heart,
+  },
+  lessonHeartsIcon: {
+    fontSize: 14,
+  },
+  lessonHeartsValue: {
+    color: theme.colors.heart,
+    fontWeight: theme.weights.extrabold,
+    fontSize: 13,
+  },
+  lessonEyebrow: {
+    color: theme.colors.brandDark,
+    fontWeight: theme.weights.extrabold,
+    fontSize: 12,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  lessonQuestion: {
+    fontSize: 24,
+    lineHeight: 32,
+    fontWeight: theme.weights.display,
+    color: theme.colors.ink,
+    fontFamily: theme.fonts.serif,
+  },
+  lessonHelper: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: theme.colors.muted,
+  },
+  lessonAudioButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: theme.colors.brandSoft,
+    borderRadius: theme.radius.md,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderWidth: 1.5,
+    borderColor: theme.colors.brandTint,
+  },
+  lessonAudioButtonPressed: {
+    backgroundColor: theme.colors.brandTint,
+  },
+  lessonAudioIcon: {
+    fontSize: 18,
+  },
+  lessonAudioLabel: {
+    color: theme.colors.brandDark,
+    fontWeight: theme.weights.extrabold,
+    fontSize: 15,
+  },
+  lessonCompleteCard: {
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.lg,
+    padding: 22,
+    gap: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    width: "100%",
+    alignItems: "center",
+    ...theme.shadows.lift,
+  },
+  lessonCompleteEmoji: {
+    fontSize: 64,
+  },
+  lessonCompleteTitle: {
+    fontSize: 26,
+    fontWeight: theme.weights.display,
+    color: theme.colors.ink,
+    textAlign: "center",
+    fontFamily: theme.fonts.serif,
+  },
+  lessonCompleteScore: {
+    fontSize: 18,
+    fontWeight: theme.weights.bold,
+    color: theme.colors.brandDark,
+    textAlign: "center",
+  },
+  lessonCompleteMeterTrack: {
+    height: 10,
+    width: "100%",
+    borderRadius: 999,
+    backgroundColor: theme.colors.surfaceAlt,
+    overflow: "hidden",
+  },
+  lessonCompleteMeterFill: {
+    height: "100%",
+    backgroundColor: theme.colors.aura,
+    borderRadius: 999,
+  },
+  lessonCompleteStatsRow: {
+    flexDirection: "row",
+    gap: 10,
+    width: "100%",
+  },
+  lessonCompleteStat: {
+    flex: 1,
+    padding: 12,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: "center",
+    gap: 2,
+  },
+  lessonCompleteStatIcon: {
+    fontSize: 22,
+  },
+  lessonCompleteStatValue: {
+    fontSize: 18,
+    fontWeight: theme.weights.display,
+    color: theme.colors.ink,
+  },
+  lessonCompleteStatLabel: {
+    fontSize: 10,
+    color: theme.colors.muted,
+    fontWeight: theme.weights.bold,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    textAlign: "center",
+  },
+  lessonCompleteHint: {
+    fontSize: 13,
+    color: theme.colors.muted,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  placementResultHero: {
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.lg,
+    padding: 24,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    width: "100%",
+    alignItems: "center",
+    ...theme.shadows.lift,
+  },
+  placementResultEmoji: {
+    fontSize: 64,
+  },
+  placementResultTitle: {
+    fontSize: 26,
+    fontWeight: theme.weights.display,
+    color: theme.colors.ink,
+    textAlign: "center",
+    fontFamily: theme.fonts.serif,
+  },
+  placementResultScore: {
+    fontSize: 16,
+    color: theme.colors.brandDark,
+    fontWeight: theme.weights.bold,
+  },
+  placementResultMeterTrack: {
+    height: 12,
+    width: "100%",
+    borderRadius: 999,
+    backgroundColor: theme.colors.surfaceAlt,
+    overflow: "hidden",
+  },
+  placementResultMeterFill: {
+    height: "100%",
+    backgroundColor: theme.colors.aura,
+    borderRadius: 999,
+  },
+  placementResultAccuracy: {
+    fontSize: 13,
+    color: theme.colors.muted,
+    fontWeight: theme.weights.extrabold,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  placementResultUnitBlock: {
+    backgroundColor: theme.colors.surfaceMuted,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.borderStrong,
+    padding: 16,
+    gap: 4,
+    width: "100%",
+  },
+  placementResultUnitValue: {
+    fontSize: 24,
+    fontWeight: theme.weights.display,
+    color: theme.colors.brandDark,
+  },
+  placementResultCopy: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: theme.colors.inkSoft,
+    marginTop: 4,
   },
 });
 
