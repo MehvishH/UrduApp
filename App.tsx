@@ -127,13 +127,13 @@ export default function App() {
 
   if (!isLoaded || !fontsLoaded) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" />
-        <AuroraBackground style={styles.loadingBackdrop}>
+      <SafeAreaView style={[styles.safeArea, styles.safeAreaDark]}>
+        <StatusBar barStyle="light-content" />
+        <AuroraBackground style={styles.loadingBackdrop} variant="dark">
           <View style={styles.loadingWrap}>
             <PulsingLogo source={logoImage} size={148} />
-            <Text style={styles.eyebrow}>Urdu Aura</Text>
-            <Text style={styles.loadingTitle}>Tuning your lessons...</Text>
+            <Text style={[styles.eyebrow, styles.eyebrowOnDark]}>Urdu Aura</Text>
+            <Text style={[styles.loadingTitle, styles.onDarkText]}>Tuning your lessons...</Text>
           </View>
         </AuroraBackground>
       </SafeAreaView>
@@ -483,10 +483,14 @@ export default function App() {
     { label: "Log out", onPress: handleLogout, danger: true },
   ];
 
+  const onDarkBg = appStage !== "main";
+  const onDarkText = onDarkBg ? styles.onDarkText : undefined;
+  const onDarkTextSoft = onDarkBg ? styles.onDarkTextSoft : undefined;
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
-      <AuroraBackground style={styles.appBackdrop} variant={appStage === "main" ? "default" : "hero"}>
+    <SafeAreaView style={[styles.safeArea, onDarkBg ? styles.safeAreaDark : undefined]}>
+      <StatusBar barStyle={onDarkBg ? "light-content" : "dark-content"} />
+      <AuroraBackground style={styles.appBackdrop} variant={onDarkBg ? "dark" : "default"}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.topBar}>
           <View style={styles.topBarLeft}>
@@ -498,10 +502,11 @@ export default function App() {
                 }}
                 style={({ pressed }) => [
                   styles.navChip,
-                  pressed ? styles.navChipPressed : undefined,
+                  onDarkBg ? styles.navChipDark : undefined,
+                  pressed ? (onDarkBg ? styles.navChipDarkPressed : styles.navChipPressed) : undefined,
                 ]}
               >
-                <Text style={styles.navChipLabel}>← {headerState.label}</Text>
+                <Text style={[styles.navChipLabel, onDarkText]}>← {headerState.label}</Text>
               </Pressable>
             ) : <View style={styles.topBarSpacer} />}
           </View>
@@ -574,8 +579,8 @@ export default function App() {
             {appStage === "landing" ? (
               <View style={styles.landingWrap}>
                 <Image source={logoImage} style={styles.landingLogo} resizeMode="cover" />
-                <Text style={styles.brand}>Urdu Aura - Apni Zabaan</Text>
-                <Text style={styles.tagline}>Grow from first phrases to deeper fluency.</Text>
+                <Text style={[styles.brand, styles.brandOnDark]}>Urdu Aura - Apni Zabaan</Text>
+                <Text style={[styles.tagline, styles.taglineOnDark]}>Grow from first phrases to deeper fluency.</Text>
                 <Pressable
                   onPress={() => {
                     setAppStage("auth");
@@ -583,17 +588,18 @@ export default function App() {
                   }}
                   style={({ pressed }) => [
                     styles.primaryButton,
-                    pressed ? styles.primaryButtonPressed : undefined,
+                    styles.primaryButtonAura,
+                    pressed ? styles.primaryButtonAuraPressed : undefined,
                   ]}
                 >
-                  <Text style={styles.primaryButtonLabel}>Ready to learn</Text>
+                  <Text style={[styles.primaryButtonLabel, styles.primaryButtonLabelDark]}>Ready to learn</Text>
                 </Pressable>
               </View>
             ) : (
               <>
             <Image source={logoImage} style={styles.heroLogo} resizeMode="cover" />
-            <Text style={styles.brand}>Urdu Aura</Text>
-            <Text style={styles.tagline}>Grow from first phrases to deeper fluency.</Text>
+            <Text style={[styles.brand, styles.brandOnDark]}>Urdu Aura</Text>
+            <Text style={[styles.tagline, styles.taglineOnDark]}>Grow from first phrases to deeper fluency.</Text>
 
             {entryPath === "welcome" && (
               <View style={styles.panel}>
@@ -2886,6 +2892,42 @@ const styles = StyleSheet.create({
     color: theme.colors.ink,
     fontWeight: theme.weights.bold,
     lineHeight: 24,
+  },
+  safeAreaDark: {
+    backgroundColor: theme.colors.bgEmerald,
+  },
+  onDarkText: {
+    color: theme.colors.inkOnDark,
+  },
+  onDarkTextSoft: {
+    color: theme.colors.inkOnDarkSoft,
+  },
+  brandOnDark: {
+    color: theme.colors.inkOnDark,
+    fontFamily: theme.fonts.serif,
+  },
+  taglineOnDark: {
+    color: theme.colors.inkOnDarkSoft,
+  },
+  primaryButtonAura: {
+    backgroundColor: theme.colors.aura,
+    ...theme.shadows.glow,
+  },
+  primaryButtonAuraPressed: {
+    backgroundColor: theme.colors.auraDeep,
+  },
+  primaryButtonLabelDark: {
+    color: theme.colors.bgEmerald,
+  },
+  navChipDark: {
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.22)",
+  },
+  navChipDarkPressed: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  },
+  eyebrowOnDark: {
+    color: theme.colors.aura,
   },
 });
 
