@@ -1042,22 +1042,33 @@ export default function App() {
           <>
             {mainView === "home" ? (
               <>
-                <View style={styles.hero}>
-                  <View style={styles.heroTopRow}>
-                    <View>
-                      <Text style={styles.eyebrow}>Urdu Aura</Text>
-                      <View style={styles.profileTitleRow}>
-                        <View style={styles.avatarBadge}>
-                          <Text style={styles.avatarBadgeText}>{progress.avatar ?? "🐱"}</Text>
-                        </View>
-                        <Text style={styles.title}>Hi {progress.userName}, ready for your next lesson?</Text>
-                      </View>
+                <View style={styles.learnHeaderCard}>
+                  <View style={styles.learnHeaderTop}>
+                    <View style={styles.learnHeaderAvatar}>
+                      <Text style={styles.learnHeaderAvatarText}>{progress.avatar ?? "🐱"}</Text>
                     </View>
-                    <Image source={logoImage} style={styles.heroMiniLogo} resizeMode="cover" />
+                    <View style={styles.learnHeaderInfo}>
+                      <Text style={styles.learnHeaderEyebrow}>Hi there</Text>
+                      <Text style={styles.learnHeaderName}>{progress.userName}</Text>
+                      <Text style={styles.learnHeaderMeta}>
+                        {progress.level ?? "Beginner"} · {progress.goal ?? "Build confidence"}
+                      </Text>
+                    </View>
                   </View>
-                  <Text style={styles.subtitle}>
-                    Goal: {progress.goal ?? "Build confidence"} | Level: {progress.level ?? "Beginner"}
-                  </Text>
+                  <View style={styles.learnHeaderStats}>
+                    <View style={[styles.learnStatPill, styles.learnStatPillFire]}>
+                      <Text style={styles.learnStatPillIcon}>🔥</Text>
+                      <Text style={styles.learnStatPillValue}>{progress.streak}</Text>
+                    </View>
+                    <View style={[styles.learnStatPill, styles.learnStatPillAura]}>
+                      <Text style={styles.learnStatPillIcon}>⚡</Text>
+                      <Text style={styles.learnStatPillValue}>{progress.xp}</Text>
+                    </View>
+                    <View style={[styles.learnStatPill, styles.learnStatPillHeart]}>
+                      <Text style={styles.learnStatPillIcon}>❤️</Text>
+                      <Text style={styles.learnStatPillValue}>{progress.hearts}</Text>
+                    </View>
+                  </View>
                   {progress.placement ? (
                     <View style={styles.placementChip}>
                       <Text style={styles.placementChipLabel}>
@@ -1067,57 +1078,20 @@ export default function App() {
                   ) : null}
                 </View>
 
-                <View style={styles.progressDeck}>
-                  <View style={styles.leaderboardCard}>
-                    <Text style={styles.leaderboardTitle}>Progress board</Text>
-                    <View style={styles.leaderboardRow}>
-                      <View style={styles.leaderboardRank}>
-                        <Text style={styles.leaderboardRankText}>#1</Text>
-                      </View>
-                      <View style={styles.leaderboardMeta}>
-                        <Text style={styles.leaderboardName}>XP Race</Text>
-                        <Text style={styles.leaderboardDetail}>You are building steady points</Text>
-                      </View>
-                      <Text style={styles.leaderboardScore}>{progress.xp} XP</Text>
-                    </View>
-                    <View style={styles.leaderboardRow}>
-                      <View style={[styles.leaderboardRank, styles.streakRank]}>
-                        <Text style={styles.leaderboardRankText}>#2</Text>
-                      </View>
-                      <View style={styles.leaderboardMeta}>
-                        <Text style={styles.leaderboardName}>Streak Run</Text>
-                        <Text style={styles.leaderboardDetail}>Keep your fire alive every day</Text>
-                      </View>
-                      <Text style={styles.leaderboardScore}>{progress.streak} days</Text>
-                    </View>
+                <Pressable
+                  onPress={() => setMainView("practice")}
+                  style={({ pressed }) => [
+                    styles.practiceCta,
+                    pressed ? styles.practiceCtaPressed : undefined,
+                  ]}
+                >
+                  <Text style={styles.practiceCtaIcon}>🗂️</Text>
+                  <View style={styles.practiceCtaText}>
+                    <Text style={styles.practiceCtaTitle}>Daily practice</Text>
+                    <Text style={styles.practiceCtaSubtitle}>Sharpen the words you've missed</Text>
                   </View>
-
-                  <View style={styles.sideWidgets}>
-                    <Pressable
-                      onPress={() => setMainView("practice")}
-                      style={({ pressed }) => [
-                        styles.practicePortal,
-                        pressed ? styles.practicePortalPressed : undefined,
-                      ]}
-                    >
-                      <Text style={styles.practicePortalIcon}>🗂️</Text>
-                      <Text style={styles.practicePortalLabel}>Practice</Text>
-                    </Pressable>
-
-                    <View style={styles.heartJarCard}>
-                      <View style={styles.heartJarCounter}>
-                        <Text style={styles.heartJarCounterText}>{progress.hearts}</Text>
-                      </View>
-                      <Text style={styles.heartJarLabel}>Heart Jar</Text>
-                      <View style={styles.heartJarBody}>
-                        <Text style={styles.heartJarHearts}>
-                          {"💚".repeat(progress.hearts)}
-                          {"🤍".repeat(Math.max(3 - progress.hearts, 0))}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
+                  <Text style={styles.practiceCtaChevron}>›</Text>
+                </Pressable>
               </>
             ) : null}
 
@@ -3857,6 +3831,129 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: theme.colors.inkSoft,
     marginTop: 4,
+  },
+  learnHeaderCard: {
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.lg,
+    padding: 20,
+    gap: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    width: "100%",
+    ...theme.shadows.lift,
+  },
+  learnHeaderTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  learnHeaderAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 999,
+    backgroundColor: theme.colors.brandSoft,
+    borderWidth: 2,
+    borderColor: theme.colors.aura,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  learnHeaderAvatarText: {
+    fontSize: 32,
+  },
+  learnHeaderInfo: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  learnHeaderEyebrow: {
+    color: theme.colors.brandDark,
+    fontWeight: theme.weights.extrabold,
+    fontSize: 11,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  learnHeaderName: {
+    color: theme.colors.ink,
+    fontSize: 22,
+    fontWeight: theme.weights.display,
+    fontFamily: theme.fonts.serif,
+  },
+  learnHeaderMeta: {
+    color: theme.colors.muted,
+    fontSize: 13,
+    fontWeight: theme.weights.semibold,
+  },
+  learnHeaderStats: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  learnStatPill: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  learnStatPillFire: {
+    backgroundColor: theme.colors.fireSoft,
+    borderColor: theme.colors.fire,
+  },
+  learnStatPillAura: {
+    backgroundColor: theme.colors.auraSoft,
+    borderColor: theme.colors.auraDeep,
+  },
+  learnStatPillHeart: {
+    backgroundColor: theme.colors.heartSoft,
+    borderColor: theme.colors.heart,
+  },
+  learnStatPillIcon: {
+    fontSize: 16,
+  },
+  learnStatPillValue: {
+    color: theme.colors.ink,
+    fontWeight: theme.weights.extrabold,
+    fontSize: 14,
+  },
+  practiceCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.lg,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: theme.colors.brandTint,
+    width: "100%",
+    ...theme.shadows.soft,
+  },
+  practiceCtaPressed: {
+    backgroundColor: theme.colors.brandSoft,
+  },
+  practiceCtaIcon: {
+    fontSize: 30,
+  },
+  practiceCtaText: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  practiceCtaTitle: {
+    color: theme.colors.ink,
+    fontSize: 17,
+    fontWeight: theme.weights.extrabold,
+  },
+  practiceCtaSubtitle: {
+    color: theme.colors.muted,
+    fontSize: 13,
+  },
+  practiceCtaChevron: {
+    color: theme.colors.brandDark,
+    fontSize: 28,
+    fontWeight: theme.weights.bold,
   },
 });
 
