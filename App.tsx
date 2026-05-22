@@ -24,6 +24,7 @@ import { BottomNav, type BottomTab } from "./components/BottomNav";
 import { ChoiceButton } from "./components/ChoiceButton";
 import { AuroraBackground } from "./components/ui/AuroraBackground";
 import { BoardConnector } from "./components/ui/BoardConnector";
+import { BouncyLogo } from "./components/ui/BouncyLogo";
 import { Medal, type MedalRank } from "./components/ui/Medal";
 import { PulsingLogo } from "./components/ui/PulsingLogo";
 import { theme } from "./constants/theme";
@@ -628,7 +629,7 @@ export default function App() {
           <View style={styles.onboardingWrap}>
             {appStage === "landing" ? (
               <View style={styles.landingWrap}>
-                <Image source={logoImage} style={styles.landingLogo} resizeMode="cover" />
+                <BouncyLogo source={logoImage} size={180} />
                 <Text style={[styles.brand, styles.brandOnDark]}>Urdu Aura - Apni Zabaan</Text>
                 <Text style={[styles.tagline, styles.taglineOnDark]}>Grow from first phrases to deeper fluency.</Text>
                 <Pressable
