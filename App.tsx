@@ -28,7 +28,7 @@ import { Medal, type MedalRank } from "./components/ui/Medal";
 import { theme } from "./constants/theme";
 import { getPlacementQuestions } from "./data/lessons";
 import { useQuizApp } from "./hooks/useQuizApp";
-import { LessonQuestion } from "./types/quiz";
+import { DailyXpGoal, LessonQuestion } from "./types/quiz";
 import { romanToUrdu } from "./utils/urdu";
 import { errorHaptic, selectionHaptic, successHaptic, tapHaptic } from "./utils/haptics";
 
@@ -68,15 +68,19 @@ export default function App() {
     currentQuestion,
     isLoaded,
     hasReviewItems,
+    secondsUntilNextHeart,
+    maxHearts,
     startLesson,
     startReview,
     submitAnswer,
     resetSession,
     saveProfile,
+    setDailyXpGoal,
     loginReturningUser,
     addFriendById,
     applyPlacementResult,
     resetPlacement,
+    refillHearts,
     avatarOptions,
   } = useQuizApp();
   const [appStage, setAppStage] = useState<"landing" | "auth" | "placement" | "main">("landing");
@@ -92,6 +96,7 @@ export default function App() {
   const [selectedGoal, setSelectedGoal] = useState<(typeof GOALS)[number] | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<(typeof LEVELS)[number] | null>(null);
   const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null);
+  const [selectedDailyXpGoal, setSelectedDailyXpGoal] = useState<DailyXpGoal | null>(null);
   const [selectedBuilderIndices, setSelectedBuilderIndices] = useState<number[]>([]);
   const [previewLessonId, setPreviewLessonId] = useState<string | null>(null);
   const [mainView, setMainView] = useState<"home" | "practice" | "leaderboard" | "editProfile" | "findFriends" | "profile">("home");
@@ -187,16 +192,18 @@ export default function App() {
       goal: selectedGoal,
       level: selectedLevel,
       avatar: selectedAvatar,
+      dailyXpGoal: selectedDailyXpGoal ?? progress.dailyXpGoal,
     });
     startPlacementFlow(selectedLevel);
   };
 
-  const wizardTotal = 4;
+  const wizardTotal = 5;
   const canAdvanceWizard = (() => {
     if (onboardingStep === 0) return nameInput.trim().length > 0;
     if (onboardingStep === 1) return selectedLevel !== null;
     if (onboardingStep === 2) return selectedGoal !== null;
-    if (onboardingStep === 3) return selectedAvatar !== null;
+    if (onboardingStep === 3) return selectedDailyXpGoal !== null;
+    if (onboardingStep === 4) return selectedAvatar !== null;
     return false;
   })();
 
@@ -350,6 +357,7 @@ export default function App() {
     setSelectedGoal(isGoalOption(progress.goal) ? progress.goal : GOALS[0]);
     setSelectedLevel(progress.level ?? "Beginner");
     setSelectedAvatar(progress.avatar ?? (progress.level ? avatarOptions[progress.level][0] : avatarOptions.Beginner[0]));
+    setSelectedDailyXpGoal(progress.dailyXpGoal);
     setProfileMenuOpen(false);
     setMainView("editProfile");
   };
@@ -372,6 +380,7 @@ export default function App() {
       goal: selectedGoal,
       level: selectedLevel,
       avatar: selectedAvatar,
+      dailyXpGoal: selectedDailyXpGoal ?? progress.dailyXpGoal,
     });
     setMainView("home");
   };
@@ -670,6 +679,7 @@ export default function App() {
                   setSelectedGoal(isGoalOption(savedGoal) ? savedGoal : null);
                   setSelectedLevel(progress.lastProfile?.level ?? null);
                   setSelectedAvatar(progress.lastProfile?.avatar ?? null);
+                  setSelectedDailyXpGoal(progress.lastProfile?.dailyXpGoal ?? progress.dailyXpGoal ?? null);
                 }} style={({ pressed }) => [
                   styles.secondaryButton,
                   pressed ? styles.secondaryButtonPressed : undefined,
@@ -816,6 +826,53 @@ export default function App() {
                 ) : null}
 
                 {onboardingStep === 3 ? (
+                  <View style={styles.wizardStep}>
+                    <Text style={styles.wizardTitle}>Set your daily XP goal</Text>
+                    <Text style={styles.wizardHelper}>How much XP do you want to earn each day? You can change this anytime.</Text>
+                    <View style={styles.dailyGoalStack}>
+                      {([10, 20, 30, 50] as const).map((amount) => {
+                        const label = amount === 10 ? "Casual"
+                          : amount === 20 ? "Regular"
+                          : amount === 30 ? "Serious"
+                          : "Intense";
+                        const helper = amount === 10 ? "5 minutes a day"
+                          : amount === 20 ? "10 minutes a day"
+                          : amount === 30 ? "15 minutes a day"
+                          : "30 minutes a day";
+                        const isActive = selectedDailyXpGoal === amount;
+                        return (
+                          <Pressable
+                            key={amount}
+                            onPress={() => {
+                              selectionHaptic();
+                              setSelectedDailyXpGoal(amount);
+                            }}
+                            style={({ pressed }) => [
+                              styles.dailyGoalOption,
+                              isActive ? styles.dailyGoalOptionActive : undefined,
+                              pressed ? styles.wizardOptionPressed : undefined,
+                            ]}
+                          >
+                            <View style={styles.dailyGoalAmountWrap}>
+                              <Text style={[styles.dailyGoalAmount, isActive ? styles.dailyGoalAmountActive : undefined]}>
+                                {amount}
+                              </Text>
+                              <Text style={styles.dailyGoalUnit}>XP / day</Text>
+                            </View>
+                            <View style={styles.dailyGoalMeta}>
+                              <Text style={[styles.dailyGoalLabel, isActive ? styles.dailyGoalLabelActive : undefined]}>
+                                {label}
+                              </Text>
+                              <Text style={styles.dailyGoalHelper}>{helper}</Text>
+                            </View>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ) : null}
+
+                {onboardingStep === 4 ? (
                   <View style={styles.wizardStep}>
                     <Text style={styles.wizardTitle}>Pick a profile picture</Text>
                     <Text style={styles.wizardHelper}>You can change this anytime in Profile.</Text>
@@ -1048,6 +1105,52 @@ export default function App() {
                   ) : null}
                 </View>
 
+                {(() => {
+                  const earned = progress.dailyXp?.earned ?? 0;
+                  const goal = progress.dailyXpGoal ?? 20;
+                  const ratio = Math.min(1, earned / goal);
+                  const done = earned >= goal;
+                  return (
+                    <View style={styles.dailyRingCard}>
+                      <View style={{ flex: 1, gap: 6 }}>
+                        <Text style={styles.dailyRingLabel}>Today's goal</Text>
+                        <Text style={styles.dailyRingValue}>
+                          {earned} / {goal} XP
+                        </Text>
+                        <View style={styles.dailyRingTrack}>
+                          <View style={[styles.dailyRingFill, { width: `${ratio * 100}%` }]} />
+                        </View>
+                      </View>
+                      <Text style={styles.dailyRingDone}>{done ? "🎯" : "⚡"}</Text>
+                    </View>
+                  );
+                })()}
+
+                {progress.hearts <= 0 ? (
+                  <View style={styles.outOfHeartsCard}>
+                    <Text style={styles.outOfHeartsEmoji}>💔</Text>
+                    <Text style={styles.outOfHeartsTitle}>Out of hearts</Text>
+                    <Text style={styles.outOfHeartsCopy}>
+                      You've run out of hearts. Wait for them to refill, or sharpen up by practicing missed words.
+                    </Text>
+                    {secondsUntilNextHeart !== null ? (
+                      <Text style={styles.outOfHeartsTimer}>
+                        {Math.floor(secondsUntilNextHeart / 60)}:
+                        {String(secondsUntilNextHeart % 60).padStart(2, "0")}
+                      </Text>
+                    ) : null}
+                    <Pressable
+                      onPress={() => setMainView("practice")}
+                      style={({ pressed }) => [
+                        styles.primaryButton,
+                        pressed ? styles.primaryButtonPressed : undefined,
+                      ]}
+                    >
+                      <Text style={styles.primaryButtonLabel}>Practice missed words</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+
                 <Pressable
                   onPress={() => setMainView("practice")}
                   style={({ pressed }) => [
@@ -1078,17 +1181,32 @@ export default function App() {
                         <Text style={styles.previewUrdu}>{phrase.urduText}</Text>
                       </View>
                     ))}
+                    {progress.hearts <= 0 ? (
+                      <View style={styles.previewHeartLockCard}>
+                        <Text style={styles.previewHeartLockTitle}>💔 Out of hearts</Text>
+                        <Text style={styles.previewHeartLockCopy}>
+                          {secondsUntilNextHeart !== null
+                            ? `Next heart in ${Math.floor(secondsUntilNextHeart / 60)}:${String(secondsUntilNextHeart % 60).padStart(2, "0")}.`
+                            : "Hearts will refill soon."} Practice missed words to keep learning while you wait.
+                        </Text>
+                      </View>
+                    ) : null}
                     <Pressable
                       onPress={() => {
+                        if (progress.hearts <= 0) return;
                         setPreviewLessonId(null);
                         void startLesson(previewLesson.id);
                       }}
+                      disabled={progress.hearts <= 0}
                       style={({ pressed }) => [
                         styles.primaryButton,
-                        pressed ? styles.primaryButtonPressed : undefined,
+                        progress.hearts <= 0 ? styles.disabledButton : undefined,
+                        pressed && progress.hearts > 0 ? styles.primaryButtonPressed : undefined,
                       ]}
                     >
-                      <Text style={styles.primaryButtonLabel}>Start lesson test</Text>
+                      <Text style={styles.primaryButtonLabel}>
+                        {progress.hearts <= 0 ? "Hearts needed to start" : "Start lesson test"}
+                      </Text>
                     </Pressable>
                     <Pressable onPress={() => setPreviewLessonId(null)} style={styles.textButton}>
                       <Text style={styles.textButtonLabel}>Back to lessons</Text>
@@ -3933,6 +4051,149 @@ const styles = StyleSheet.create({
     color: theme.colors.brandDark,
     fontSize: 28,
     fontWeight: theme.weights.bold,
+  },
+  dailyGoalStack: {
+    gap: 10,
+  },
+  dailyGoalOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    backgroundColor: theme.colors.card,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  dailyGoalOptionActive: {
+    borderColor: theme.colors.aura,
+    backgroundColor: theme.colors.auraSoft,
+  },
+  dailyGoalAmountWrap: {
+    minWidth: 70,
+    alignItems: "center",
+  },
+  dailyGoalAmount: {
+    fontSize: 28,
+    fontWeight: theme.weights.display,
+    color: theme.colors.ink,
+  },
+  dailyGoalAmountActive: {
+    color: theme.colors.brandDark,
+  },
+  dailyGoalUnit: {
+    fontSize: 10,
+    color: theme.colors.muted,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    fontWeight: theme.weights.extrabold,
+  },
+  dailyGoalMeta: {
+    flex: 1,
+    gap: 2,
+  },
+  dailyGoalLabel: {
+    fontSize: 17,
+    fontWeight: theme.weights.extrabold,
+    color: theme.colors.ink,
+  },
+  dailyGoalLabelActive: {
+    color: theme.colors.brandDark,
+  },
+  dailyGoalHelper: {
+    fontSize: 13,
+    color: theme.colors.muted,
+  },
+  dailyRingCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.lg,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    width: "100%",
+    ...theme.shadows.soft,
+  },
+  dailyRingTrack: {
+    height: 14,
+    flex: 1,
+    borderRadius: 999,
+    backgroundColor: theme.colors.surfaceAlt,
+    overflow: "hidden",
+  },
+  dailyRingFill: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: theme.colors.aura,
+  },
+  dailyRingLabel: {
+    fontSize: 12,
+    color: theme.colors.muted,
+    fontWeight: theme.weights.bold,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  dailyRingValue: {
+    fontSize: 18,
+    fontWeight: theme.weights.display,
+    color: theme.colors.ink,
+  },
+  dailyRingDone: {
+    fontSize: 18,
+  },
+  outOfHeartsCard: {
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.lg,
+    padding: 24,
+    gap: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.heart,
+    width: "100%",
+    alignItems: "center",
+    ...theme.shadows.lift,
+  },
+  outOfHeartsEmoji: {
+    fontSize: 64,
+  },
+  outOfHeartsTitle: {
+    fontSize: 22,
+    fontWeight: theme.weights.display,
+    color: theme.colors.heart,
+    fontFamily: theme.fonts.serif,
+    textAlign: "center",
+  },
+  outOfHeartsCopy: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: theme.colors.muted,
+    textAlign: "center",
+  },
+  outOfHeartsTimer: {
+    fontSize: 28,
+    fontWeight: theme.weights.display,
+    color: theme.colors.ink,
+    fontVariant: ["tabular-nums"],
+  },
+  previewHeartLockCard: {
+    backgroundColor: theme.colors.heartSoft,
+    borderWidth: 1,
+    borderColor: theme.colors.heart,
+    borderRadius: theme.radius.md,
+    padding: 14,
+    gap: 4,
+  },
+  previewHeartLockTitle: {
+    color: theme.colors.heart,
+    fontWeight: theme.weights.extrabold,
+    fontSize: 15,
+  },
+  previewHeartLockCopy: {
+    color: theme.colors.ink,
+    fontSize: 13,
+    lineHeight: 18,
   },
 });
 

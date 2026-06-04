@@ -9,6 +9,7 @@ import {
 } from "../data/lessons";
 import {
   AnswerResult,
+  DailyXpGoal,
   FriendProfile,
   Lesson,
   PlacementResult,
@@ -18,7 +19,12 @@ import {
 } from "../types/quiz";
 
 const STORAGE_KEY = "urdu-lingo-progress";
-const MAX_HEARTS = 3;
+const MAX_HEARTS = 5;
+const HEART_REGEN_MS = 20 * 60 * 1000; // 20 minutes per heart
+
+function todayKey(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 const defaultProgress: Progress = {
   userName: "Learner",
@@ -30,12 +36,15 @@ const defaultProgress: Progress = {
   lastProfile: null,
   xp: 0,
   hearts: MAX_HEARTS,
+  nextHeartAt: null,
   streak: 1,
   lastPracticeDate: null,
   completedLessons: [],
   missedBank: {},
   friends: [],
   placement: null,
+  dailyXpGoal: 20,
+  dailyXp: { date: todayKey(), earned: 0 },
 };
 
 const levelAvatars: Record<"Beginner" | "Intermediate" | "Advanced", string[]> = {
@@ -73,6 +82,7 @@ function normalizeLoadedProgress(parsed: Progress): Progress {
       level: merged.level,
       avatar: merged.avatar ?? levelAvatars[merged.level][0],
       playerId: merged.playerId,
+      dailyXpGoal: merged.dailyXpGoal ?? 20,
     };
   }
 
@@ -80,11 +90,29 @@ function normalizeLoadedProgress(parsed: Progress): Progress {
     merged.avatar = merged.lastProfile.avatar;
   }
 
-  if (!merged.lastProfile?.playerId && merged.lastProfile) {
+  if (merged.lastProfile && !merged.lastProfile.playerId) {
     merged.lastProfile.playerId = merged.playerId;
   }
 
-  return merged;
+  if (merged.lastProfile && !merged.lastProfile.dailyXpGoal) {
+    merged.lastProfile.dailyXpGoal = merged.dailyXpGoal ?? 20;
+  }
+
+  // Guard against persisted snapshots from before these fields existed.
+  if (merged.hearts === undefined || merged.hearts === null) {
+    merged.hearts = MAX_HEARTS;
+  }
+  if (merged.hearts > MAX_HEARTS) {
+    merged.hearts = MAX_HEARTS;
+  }
+  if (!merged.dailyXp || typeof merged.dailyXp !== "object") {
+    merged.dailyXp = { date: todayKey(), earned: 0 };
+  }
+  if (!merged.dailyXpGoal) {
+    merged.dailyXpGoal = 20;
+  }
+
+  return applyHeartRegen(rollDailyXp(merged));
 }
 
 function pickAvatar(userName: string, level: "Beginner" | "Intermediate" | "Advanced") {
@@ -103,7 +131,7 @@ function shuffle<T>(items: T[]): T[] {
 }
 
 function updateStreak(progress: Progress): Progress {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayKey();
 
   if (!progress.lastPracticeDate) {
     return {
@@ -128,6 +156,67 @@ function updateStreak(progress: Progress): Progress {
     ...progress,
     streak: diff === 1 ? progress.streak + 1 : 1,
     lastPracticeDate: today,
+  };
+}
+
+function applyHeartRegen(progress: Progress): Progress {
+  if (progress.hearts >= MAX_HEARTS || !progress.nextHeartAt) {
+    return { ...progress, nextHeartAt: progress.hearts >= MAX_HEARTS ? null : progress.nextHeartAt };
+  }
+
+  const now = Date.now();
+  const target = new Date(progress.nextHeartAt).getTime();
+  if (Number.isNaN(target) || now < target) {
+    return progress;
+  }
+
+  let hearts = progress.hearts;
+  let cursor = target;
+  while (hearts < MAX_HEARTS && cursor <= now) {
+    hearts += 1;
+    cursor += HEART_REGEN_MS;
+  }
+
+  return {
+    ...progress,
+    hearts,
+    nextHeartAt: hearts >= MAX_HEARTS ? null : new Date(cursor).toISOString(),
+  };
+}
+
+function rollDailyXp(progress: Progress): Progress {
+  const today = todayKey();
+  if (progress.dailyXp?.date === today) {
+    return progress;
+  }
+  return {
+    ...progress,
+    dailyXp: { date: today, earned: 0 },
+  };
+}
+
+function noteHeartLost(progress: Progress): Progress {
+  if (progress.nextHeartAt) {
+    return progress;
+  }
+  return {
+    ...progress,
+    nextHeartAt: new Date(Date.now() + HEART_REGEN_MS).toISOString(),
+  };
+}
+
+function addDailyXp(progress: Progress, amount: number): Progress {
+  if (amount <= 0) return progress;
+  const today = todayKey();
+  if (progress.dailyXp?.date !== today) {
+    return {
+      ...progress,
+      dailyXp: { date: today, earned: amount },
+    };
+  }
+  return {
+    ...progress,
+    dailyXp: { date: today, earned: progress.dailyXp.earned + amount },
   };
 }
 
@@ -180,6 +269,7 @@ export function useQuizApp() {
   const [session, setSession] = useState<SessionState | null>(null);
   const [feedback, setFeedback] = useState<AnswerResult | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [, forceTick] = useState(0);
   const units = useMemo(() => getUnitsForLevel(progress.level), [progress.level]);
   const lessons = useMemo(() => getLessonsForLevel(progress.level), [progress.level]);
 
@@ -201,6 +291,20 @@ export function useQuizApp() {
     void load();
   }, []);
 
+  // Tick once a minute so heart-regen countdowns + dailyXp date-rollover update.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      forceTick((value) => value + 1);
+      setProgress((current) => {
+        const next = applyHeartRegen(rollDailyXp(current));
+        if (next === current) return current;
+        void persistProgress(next);
+        return next;
+      });
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
   const currentQuestion = useMemo(() => {
     if (!session) {
       return null;
@@ -211,13 +315,16 @@ export function useQuizApp() {
   const startLesson = useCallback(async (lessonId: string) => {
     const lesson = lessons.find((entry) => entry.id === lessonId);
     if (!lesson) {
-      return;
+      return false;
+    }
+    const regenerated = applyHeartRegen(rollDailyXp(progress));
+    if (regenerated.hearts <= 0) {
+      setProgress(regenerated);
+      await persistProgress(regenerated);
+      return false;
     }
 
-    const updatedProgress = updateStreak({
-      ...progress,
-      hearts: MAX_HEARTS,
-    });
+    const updatedProgress = updateStreak(regenerated);
 
     setProgress(updatedProgress);
     await persistProgress(updatedProgress);
@@ -231,14 +338,18 @@ export function useQuizApp() {
       xpPerCorrect: 10,
       isFinished: false,
     });
+    return true;
   }, [lessons, progress]);
 
   const startReview = useCallback(async () => {
-    const reviewQuestions = buildReviewQuestions(progress, lessons);
-    const updatedProgress = updateStreak({
-      ...progress,
-      hearts: MAX_HEARTS,
-    });
+    const regenerated = applyHeartRegen(rollDailyXp(progress));
+    const reviewQuestions = buildReviewQuestions(regenerated, lessons);
+    if (regenerated.hearts <= 0 && reviewQuestions.length > 0) {
+      setProgress(regenerated);
+      await persistProgress(regenerated);
+      return false;
+    }
+    const updatedProgress = updateStreak(regenerated);
 
     setProgress(updatedProgress);
     await persistProgress(updatedProgress);
@@ -252,6 +363,7 @@ export function useQuizApp() {
       xpPerCorrect: 5,
       isFinished: reviewQuestions.length === 0,
     });
+    return true;
   }, [lessons, progress]);
 
   const submitAnswer = useCallback(async (choice: string) => {
@@ -268,13 +380,20 @@ export function useQuizApp() {
     const isCorrect = question.type === "buildSentence"
       ? normalizeAnswer(choice) === normalizeAnswer(question.answerUr)
       : choice === question.answerUr;
-    const nextProgress: Progress = {
+
+    let nextProgress: Progress = {
       ...progress,
       xp: progress.xp + (isCorrect ? session.xpPerCorrect : 0),
       hearts: isCorrect ? progress.hearts : Math.max(progress.hearts - 1, 0),
       missedBank: { ...progress.missedBank },
       completedLessons: [...progress.completedLessons],
     };
+
+    if (isCorrect) {
+      nextProgress = addDailyXp(nextProgress, session.xpPerCorrect);
+    } else {
+      nextProgress = noteHeartLost(nextProgress);
+    }
 
     if (isCorrect && session.mode === "review" && nextProgress.missedBank[key]) {
       const newMissCount = nextProgress.missedBank[key] - 1;
@@ -335,15 +454,18 @@ export function useQuizApp() {
     goal,
     level,
     avatar,
+    dailyXpGoal,
   }: {
     userName: string;
     goal: string;
     level: "Beginner" | "Intermediate" | "Advanced";
     avatar?: string | null;
+    dailyXpGoal?: DailyXpGoal;
   }) => {
     const chosenAvatar = avatar ?? pickAvatar(userName, level);
     const playerId = progress.playerId || createPlayerId(userName);
     const levelChanged = progress.level !== level;
+    const finalDailyXpGoal: DailyXpGoal = dailyXpGoal ?? progress.dailyXpGoal ?? 20;
     const nextProgress: Progress = {
       ...progress,
       userName,
@@ -351,6 +473,7 @@ export function useQuizApp() {
       goal,
       level,
       avatar: chosenAvatar,
+      dailyXpGoal: finalDailyXpGoal,
       isOnboarded: true,
       completedLessons: levelChanged ? [] : progress.completedLessons,
       placement: levelChanged ? null : progress.placement,
@@ -360,9 +483,22 @@ export function useQuizApp() {
         level,
         avatar: chosenAvatar,
         playerId,
+        dailyXpGoal: finalDailyXpGoal,
       },
     };
 
+    setProgress(nextProgress);
+    await persistProgress(nextProgress);
+  }, [progress]);
+
+  const setDailyXpGoal = useCallback(async (goal: DailyXpGoal) => {
+    const nextProgress: Progress = {
+      ...progress,
+      dailyXpGoal: goal,
+      lastProfile: progress.lastProfile
+        ? { ...progress.lastProfile, dailyXpGoal: goal }
+        : progress.lastProfile,
+    };
     setProgress(nextProgress);
     await persistProgress(nextProgress);
   }, [progress]);
@@ -423,9 +559,20 @@ export function useQuizApp() {
       goal: progress.lastProfile.goal,
       level: progress.lastProfile.level,
       avatar: progress.lastProfile.avatar,
+      dailyXpGoal: progress.lastProfile.dailyXpGoal ?? progress.dailyXpGoal ?? 20,
       isOnboarded: true,
     };
 
+    setProgress(nextProgress);
+    await persistProgress(nextProgress);
+  }, [progress]);
+
+  const refillHearts = useCallback(async () => {
+    const nextProgress: Progress = {
+      ...progress,
+      hearts: MAX_HEARTS,
+      nextHeartAt: null,
+    };
     setProgress(nextProgress);
     await persistProgress(nextProgress);
   }, [progress]);
@@ -457,6 +604,12 @@ export function useQuizApp() {
     return { ok: true as const, message: `${match.name} was added to your friends.` };
   }, [progress]);
 
+  const secondsUntilNextHeart = useMemo(() => {
+    if (progress.hearts >= MAX_HEARTS || !progress.nextHeartAt) return null;
+    const remaining = Math.max(0, new Date(progress.nextHeartAt).getTime() - Date.now());
+    return Math.ceil(remaining / 1000);
+  }, [progress.hearts, progress.nextHeartAt]);
+
   return {
     units,
     lessons,
@@ -466,16 +619,20 @@ export function useQuizApp() {
     currentQuestion,
     isLoaded,
     hasReviewItems: Object.keys(progress.missedBank).length > 0,
+    secondsUntilNextHeart,
+    maxHearts: MAX_HEARTS,
     startLesson,
     startReview,
     submitAnswer,
     resetSession,
     saveProfile,
+    setDailyXpGoal,
     startOverProfile,
     loginReturningUser,
     addFriendById,
     applyPlacementResult,
     resetPlacement,
+    refillHearts,
     avatarOptions: levelAvatars,
     playerDirectory: directoryProfiles,
   };

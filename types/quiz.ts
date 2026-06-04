@@ -60,6 +60,8 @@ export type PlacementResult = {
   startingUnit: number;
 };
 
+export type DailyXpGoal = 10 | 20 | 30 | 50;
+
 export type Progress = {
   userName: string;
   playerId: string;
@@ -73,15 +75,22 @@ export type Progress = {
     level: "Beginner" | "Intermediate" | "Advanced";
     avatar: string;
     playerId: string;
+    dailyXpGoal: DailyXpGoal;
   } | null;
   xp: number;
   hearts: number;
+  nextHeartAt: string | null;
   streak: number;
   lastPracticeDate: string | null;
   completedLessons: string[];
   missedBank: Record<string, number>;
   friends: FriendProfile[];
   placement: PlacementResult | null;
+  dailyXpGoal: DailyXpGoal;
+  dailyXp: {
+    date: string;
+    earned: number;
+  };
 };
 
 export type SessionMode = "lesson" | "review";
