@@ -9,9 +9,22 @@ type ChoiceButtonProps = {
   detail?: string;
   onPress: () => void;
   disabled?: boolean;
+  /**
+   * When true (default), the label is styled with the Noto Nastaliq Urdu
+   * font + RTL alignment — appropriate for Urdu script choices.
+   * Set false when the choice is plain English (translateToEnglish /
+   * listenMeaning) so it renders LTR with a normal sans-serif weight.
+   */
+  displayAsUrdu?: boolean;
 };
 
-export function ChoiceButton({ label, detail, onPress, disabled = false }: ChoiceButtonProps) {
+export function ChoiceButton({
+  label,
+  detail,
+  onPress,
+  disabled = false,
+  displayAsUrdu = true,
+}: ChoiceButtonProps) {
   const scale = useRef(new Animated.Value(1)).current;
 
   const pressIn = () => {
@@ -52,7 +65,7 @@ export function ChoiceButton({ label, detail, onPress, disabled = false }: Choic
         ]}
       >
         <View style={styles.content}>
-          <Text style={styles.label}>{label}</Text>
+          <Text style={displayAsUrdu ? styles.labelUrdu : styles.labelEnglish}>{label}</Text>
           {detail ? <Text style={styles.detail}>{detail}</Text> : null}
         </View>
       </Pressable>
@@ -81,7 +94,7 @@ const styles = StyleSheet.create({
     gap: 6,
     minWidth: 0,
   },
-  label: {
+  labelUrdu: {
     color: theme.colors.ink,
     fontSize: 22,
     lineHeight: 32,
@@ -89,6 +102,13 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.urdu,
     textAlign: "right",
     writingDirection: "rtl",
+    flexShrink: 1,
+  },
+  labelEnglish: {
+    color: theme.colors.ink,
+    fontSize: 17,
+    lineHeight: 24,
+    fontWeight: theme.weights.bold,
     flexShrink: 1,
   },
   detail: {

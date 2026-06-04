@@ -1913,15 +1913,19 @@ export default function App() {
                   </View>
                 ) : (
                   <View style={styles.choiceList}>
-                    {(currentQuestion.choices ?? []).map((choice) => (
-                      <ChoiceButton
-                        key={choice}
-                        label={romanToUrdu(choice)}
-                        detail={choice}
-                        disabled={Boolean(feedback)}
-                        onPress={() => void submitAnswer(choice)}
-                      />
-                    ))}
+                    {(() => {
+                      const expectsUrduAnswer = currentQuestion.type === "translateToUrdu";
+                      return (currentQuestion.choices ?? []).map((choice) => (
+                        <ChoiceButton
+                          key={choice}
+                          label={expectsUrduAnswer ? romanToUrdu(choice) : choice}
+                          detail={expectsUrduAnswer ? choice : undefined}
+                          displayAsUrdu={expectsUrduAnswer}
+                          disabled={Boolean(feedback)}
+                          onPress={() => void submitAnswer(choice)}
+                        />
+                      ));
+                    })()}
                   </View>
                 )}
 
