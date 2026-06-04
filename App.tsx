@@ -660,31 +660,36 @@ export default function App() {
             <Text style={[styles.tagline, styles.taglineOnDark]}>Grow from first phrases to deeper fluency.</Text>
 
             {entryPath === "welcome" && (
-              <View style={styles.panel}>
-                <Text style={styles.sectionTitle}>Learn, reconnect, and level up</Text>
-                <Text style={styles.sectionCopy}>
-                  Urdu Aura helps non-native speakers learn Urdu with clarity and confidence, while current
-                  speakers can grow vocabulary, strengthen expression, and sharpen everyday communication.
+              <View style={styles.welcomePanel}>
+                <Text style={styles.welcomeTitle}>Learn Urdu with clarity</Text>
+                <Text style={styles.welcomeCopy}>
+                  Grow from first phrases to deeper fluency — Urdu Aura tailors every lesson to your goal.
                 </Text>
-                <Pressable onPress={() => setEntryPath("new")} style={({ pressed }) => [
-                  styles.primaryButton,
-                  pressed ? styles.primaryButtonPressed : undefined,
-                ]}>
-                  <Text style={styles.primaryButtonLabel}>I am a new user</Text>
+                <Pressable
+                  onPress={() => setEntryPath("new")}
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    styles.primaryButtonAura,
+                    pressed ? styles.primaryButtonAuraPressed : undefined,
+                  ]}
+                >
+                  <Text style={[styles.primaryButtonLabel, styles.primaryButtonLabelDark]}>Get started</Text>
                 </Pressable>
-                <Pressable onPress={() => {
-                  const savedGoal = progress.lastProfile?.goal ?? null;
-                  setEntryPath("returning");
-                  setNameInput(progress.lastProfile?.userName ?? "");
-                  setSelectedGoal(isGoalOption(savedGoal) ? savedGoal : null);
-                  setSelectedLevel(progress.lastProfile?.level ?? null);
-                  setSelectedAvatar(progress.lastProfile?.avatar ?? null);
-                  setSelectedDailyXpGoal(progress.lastProfile?.dailyXpGoal ?? progress.dailyXpGoal ?? null);
-                }} style={({ pressed }) => [
-                  styles.secondaryButton,
-                  pressed ? styles.secondaryButtonPressed : undefined,
-                ]}>
-                  <Text style={styles.secondaryButtonLabel}>I am a returning user</Text>
+                <Pressable
+                  onPress={() => {
+                    const savedGoal = progress.lastProfile?.goal ?? null;
+                    setEntryPath("returning");
+                    setNameInput(progress.lastProfile?.userName ?? "");
+                    setSelectedGoal(isGoalOption(savedGoal) ? savedGoal : null);
+                    setSelectedLevel(progress.lastProfile?.level ?? null);
+                    setSelectedAvatar(progress.lastProfile?.avatar ?? null);
+                    setSelectedDailyXpGoal(progress.lastProfile?.dailyXpGoal ?? progress.dailyXpGoal ?? null);
+                  }}
+                  style={({ pressed }) => [styles.welcomeSignInLink, pressed ? styles.welcomeSignInLinkPressed : undefined]}
+                >
+                  <Text style={styles.welcomeSignInLabel}>
+                    Already have an account? <Text style={styles.welcomeSignInLabelStrong}>Sign in</Text>
+                  </Text>
                 </Pressable>
               </View>
             )}
@@ -4194,6 +4199,49 @@ const styles = StyleSheet.create({
     color: theme.colors.ink,
     fontSize: 13,
     lineHeight: 18,
+  },
+  welcomePanel: {
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.lg,
+    paddingVertical: 28,
+    paddingHorizontal: 22,
+    gap: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    width: "100%",
+    alignItems: "center",
+    ...theme.shadows.lift,
+  },
+  welcomeTitle: {
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: theme.weights.display,
+    color: theme.colors.ink,
+    textAlign: "center",
+    fontFamily: theme.fonts.serif,
+  },
+  welcomeCopy: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: theme.colors.muted,
+    textAlign: "center",
+  },
+  welcomeSignInLink: {
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    marginTop: 4,
+  },
+  welcomeSignInLinkPressed: {
+    opacity: 0.7,
+  },
+  welcomeSignInLabel: {
+    color: theme.colors.muted,
+    fontSize: 14,
+    textAlign: "center",
+  },
+  welcomeSignInLabelStrong: {
+    color: theme.colors.brandDark,
+    fontWeight: theme.weights.extrabold,
   },
 });
 
