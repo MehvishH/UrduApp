@@ -589,18 +589,30 @@ export default function App() {
           </View>
           {appStage !== "main" ? <View style={styles.topBarSpacer} /> : (
             <View style={styles.profileMenuWrap}>
-              <Pressable
-                onPress={openProfileMenu}
-                style={({ pressed }) => [
-                  styles.topBarBrand,
-                  pressed ? styles.topBarBrandPressed : undefined,
-                ]}
-              >
-                <Text style={styles.topProfileName}>{progress.userName}</Text>
-                <View style={styles.topProfileAvatar}>
+              {session ? (
+                <Pressable
+                  onPress={openProfileMenu}
+                  style={({ pressed }) => [
+                    styles.topProfileIconButton,
+                    pressed ? styles.topProfileIconButtonPressed : undefined,
+                  ]}
+                >
                   <Text style={styles.topProfileAvatarText}>{progress.avatar ?? "🐱"}</Text>
-                </View>
-              </Pressable>
+                </Pressable>
+              ) : (
+                <Pressable
+                  onPress={openProfileMenu}
+                  style={({ pressed }) => [
+                    styles.topBarBrand,
+                    pressed ? styles.topBarBrandPressed : undefined,
+                  ]}
+                >
+                  <Text style={styles.topProfileName}>{progress.userName}</Text>
+                  <View style={styles.topProfileAvatar}>
+                    <Text style={styles.topProfileAvatarText}>{progress.avatar ?? "🐱"}</Text>
+                  </View>
+                </Pressable>
+              )}
             </View>
           )}
         </View>
@@ -1822,6 +1834,12 @@ export default function App() {
                       ]}
                     />
                   </View>
+                  <View style={styles.lessonScoreBadge}>
+                    <Text style={styles.lessonScoreIcon}>⭐</Text>
+                    <Text style={styles.lessonScoreValue}>
+                      {session.correctAnswers}/{session.questions.length}
+                    </Text>
+                  </View>
                   <View style={styles.lessonHeartsBadge}>
                     <Text style={styles.lessonHeartsIcon}>❤️</Text>
                     <Text style={styles.lessonHeartsValue}>{progress.hearts}</Text>
@@ -2032,19 +2050,63 @@ export default function App() {
                     Last answer: {formatUrduAnswer(feedback.correctAnswer)}
                   </Text>
                 ) : null}
-                <Pressable onPress={resetSession} style={({ pressed }) => [
-                  styles.primaryButton,
-                  styles.primaryButtonAura,
-                  pressed ? styles.primaryButtonAuraPressed : undefined,
-                ]}>
-                  <Text style={[styles.primaryButtonLabel, styles.primaryButtonLabelDark]}>Continue learning</Text>
-                </Pressable>
+                {(() => {
+                  // Find the next lesson after the one we just completed so
+                  // the user can flow straight into it from the celebration
+                  // card without bouncing back to the home grid.
+                  const finishedLessonId = session.lessonId;
+                  const flatLessons = lessons;
+                  const idx = finishedLessonId
+                    ? flatLessons.findIndex((entry) => entry.id === finishedLessonId)
+                    : -1;
+                  const nextLesson = idx >= 0 ? flatLessons[idx + 1] ?? null : null;
+                  const heartsLow = progress.hearts <= 0;
+                  return (
+                    <>
+                      {nextLesson && !heartsLow ? (
+                        <Pressable
+                          onPress={() => {
+                            tapHaptic();
+                            setPreviewLessonId(null);
+                            void startLesson(nextLesson.id);
+                          }}
+                          style={({ pressed }) => [
+                            styles.primaryButton,
+                            styles.primaryButtonAura,
+                            pressed ? styles.primaryButtonAuraPressed : undefined,
+                          ]}
+                        >
+                          <Text style={[styles.primaryButtonLabel, styles.primaryButtonLabelDark]}>
+                            Next level →
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                      {nextLesson && heartsLow ? (
+                        <Text style={styles.lessonCompleteHint}>
+                          Out of hearts — practice missed words or wait for hearts to refill before starting the next level.
+                        </Text>
+                      ) : null}
+                      {!nextLesson ? (
+                        <Text style={styles.lessonCompleteHint}>
+                          🏆 You've reached the end of your current curriculum. Take a victory lap!
+                        </Text>
+                      ) : null}
+                      <Pressable
+                        onPress={() => {
+                          tapHaptic();
+                          resetSession();
+                        }}
+                        style={({ pressed }) => [
+                          styles.secondaryButton,
+                          pressed ? styles.secondaryButtonPressed : undefined,
+                        ]}
+                      >
+                        <Text style={styles.secondaryButtonLabel}>Back to lessons</Text>
+                      </Pressable>
+                    </>
+                  );
+                })()}
               </View>
-            )}
-            {session && (
-              <Pressable onPress={resetSession} style={styles.textButton}>
-                <Text style={styles.textButtonLabel}>Back to lessons</Text>
-              </Pressable>
             )}
           </>
         )}
@@ -3797,6 +3859,39 @@ const styles = StyleSheet.create({
     color: theme.colors.heart,
     fontWeight: theme.weights.extrabold,
     fontSize: 13,
+  },
+  lessonScoreBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: theme.colors.auraSoft,
+    borderWidth: 1,
+    borderColor: theme.colors.auraDeep,
+  },
+  lessonScoreIcon: {
+    fontSize: 14,
+  },
+  lessonScoreValue: {
+    color: theme.colors.brandDark,
+    fontWeight: theme.weights.extrabold,
+    fontSize: 13,
+    fontVariant: ["tabular-nums"],
+  },
+  topProfileIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    backgroundColor: theme.colors.brandSoft,
+    borderWidth: 1,
+    borderColor: theme.colors.borderStrong,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  topProfileIconButtonPressed: {
+    backgroundColor: theme.colors.brandTint,
   },
   lessonEyebrow: {
     color: theme.colors.brandDark,
