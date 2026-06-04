@@ -73,6 +73,7 @@ export default function App() {
     startLesson,
     startReview,
     submitAnswer,
+    advanceSession,
     resetSession,
     saveProfile,
     setDailyXpGoal,
@@ -1829,7 +1830,7 @@ export default function App() {
                 </Pressable>
 
                 {currentQuestion.type === "buildSentence" ? (
-                  <View style={styles.builderWrap}>
+                  <View style={[styles.builderWrap, feedback ? styles.builderWrapLocked : undefined]}>
                     <Text style={styles.speakingTarget}>{formatUrduAnswer(currentQuestion.answerUr)}</Text>
                     <Text style={styles.helper}>Tap the tiles to build the full Roman Urdu sentence.</Text>
                     <View style={styles.builderAnswerRow}>
@@ -1882,11 +1883,11 @@ export default function App() {
                           .trim();
                         void submitAnswer(builtAnswer);
                       }}
-                      disabled={selectedBuilderIndices.length === 0}
+                      disabled={selectedBuilderIndices.length === 0 || Boolean(feedback)}
                       style={({ pressed }) => [
                         styles.primaryButton,
-                        selectedBuilderIndices.length === 0 ? styles.disabledButton : undefined,
-                        pressed && selectedBuilderIndices.length > 0 ? styles.primaryButtonPressed : undefined,
+                        (selectedBuilderIndices.length === 0 || feedback) ? styles.disabledButton : undefined,
+                        pressed && selectedBuilderIndices.length > 0 && !feedback ? styles.primaryButtonPressed : undefined,
                       ]}
                     >
                       <Text style={styles.primaryButtonLabel}>Check my sentence</Text>
@@ -1899,11 +1900,30 @@ export default function App() {
                         key={choice}
                         label={romanToUrdu(choice)}
                         detail={choice}
+                        disabled={Boolean(feedback)}
                         onPress={() => void submitAnswer(choice)}
                       />
                     ))}
                   </View>
                 )}
+
+                {feedback ? (
+                  <Pressable
+                    onPress={() => {
+                      tapHaptic();
+                      void advanceSession();
+                    }}
+                    style={({ pressed }) => [
+                      styles.primaryButton,
+                      styles.primaryButtonAura,
+                      pressed ? styles.primaryButtonAuraPressed : undefined,
+                    ]}
+                  >
+                    <Text style={[styles.primaryButtonLabel, styles.primaryButtonLabelDark]}>
+                      {feedback.done ? "Finish lesson" : "Continue"}
+                    </Text>
+                  </Pressable>
+                ) : null}
 
                 {feedback && (
                   <Animated.View
@@ -4242,6 +4262,9 @@ const styles = StyleSheet.create({
   welcomeSignInLabelStrong: {
     color: theme.colors.brandDark,
     fontWeight: theme.weights.extrabold,
+  },
+  builderWrapLocked: {
+    opacity: 0.7,
   },
 });
 

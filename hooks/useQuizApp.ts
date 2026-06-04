@@ -370,6 +370,9 @@ export function useQuizApp() {
     if (!session) {
       return;
     }
+    if (feedback) {
+      return; // already graded; user needs to advanceSession() first
+    }
 
     const question = session.questions[session.currentIndex];
     if (!question) {
@@ -408,22 +411,10 @@ export function useQuizApp() {
       nextProgress.missedBank[key] = (nextProgress.missedBank[key] ?? 0) + 1;
     }
 
-    const nextIndex = session.currentIndex + 1;
-    const correctAnswers = session.correctAnswers + (isCorrect ? 1 : 0);
-    const lessonDone = nextIndex >= session.questions.length;
+    const isLastQuestion = session.currentIndex + 1 >= session.questions.length;
     const heartsDone = nextProgress.hearts <= 0;
-    const done = lessonDone || heartsDone;
-
-    if (done && session.mode === "lesson" && session.lessonId && !nextProgress.completedLessons.includes(session.lessonId)) {
-      nextProgress.completedLessons.push(session.lessonId);
-    }
-
-    const nextSession: SessionState = {
-      ...session,
-      currentIndex: nextIndex,
-      correctAnswers,
-      isFinished: done,
-    };
+    const done = isLastQuestion || heartsDone;
+    const correctAnswers = session.correctAnswers + (isCorrect ? 1 : 0);
 
     const result: AnswerResult = {
       done,
@@ -438,11 +429,45 @@ export function useQuizApp() {
       updatedProgress: nextProgress,
     };
 
+    // Update the running tally on the session, but keep currentIndex pinned
+    // so the just-answered question stays visible while feedback is shown.
+    const updatedSession: SessionState = {
+      ...session,
+      correctAnswers,
+    };
+
     setProgress(nextProgress);
-    setSession(nextSession);
+    setSession(updatedSession);
     setFeedback(result);
     await persistProgress(nextProgress);
-  }, [progress, session]);
+  }, [progress, session, feedback]);
+
+  const advanceSession = useCallback(async () => {
+    if (!session || !feedback) return;
+
+    if (feedback.done) {
+      // Finalize the session — mark lesson complete, flip isFinished, then
+      // the UI will swap to the completion card.
+      const nextProgress: Progress = {
+        ...progress,
+        completedLessons: [...progress.completedLessons],
+      };
+      if (session.mode === "lesson" && session.lessonId && !nextProgress.completedLessons.includes(session.lessonId)) {
+        nextProgress.completedLessons.push(session.lessonId);
+        setProgress(nextProgress);
+        await persistProgress(nextProgress);
+      }
+      setSession({ ...session, isFinished: true });
+      setFeedback(null);
+      return;
+    }
+
+    setSession({
+      ...session,
+      currentIndex: session.currentIndex + 1,
+    });
+    setFeedback(null);
+  }, [session, feedback, progress]);
 
   const resetSession = useCallback(() => {
     setSession(null);
@@ -624,6 +649,7 @@ export function useQuizApp() {
     startLesson,
     startReview,
     submitAnswer,
+    advanceSession,
     resetSession,
     saveProfile,
     setDailyXpGoal,
