@@ -344,23 +344,100 @@ export const LESSONS: Lesson[] = getLessonsForLevel("Beginner");
 
 export const PLACEMENT_QUESTION_COUNT = 10;
 
-const PLACEMENT_UNIT_INDICES = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18] as const;
+// Each placement entry pins one distinct pack + one of its phrases + the
+// question type to ask. This guarantees no pack repeats in the 10-question
+// run (the previous implementation kept landing on "time" 3x because units
+// 4, 6, and 8 all include the time pack at the modulo positions we hit).
+type PlacementSpec = {
+  pack: string;
+  type: Exclude<LessonQuestion["type"], "buildSentence">;
+  phraseIndex: number;
+};
+
+const BEGINNER_PLACEMENT_SPECS: PlacementSpec[] = [
+  { pack: "greetings", type: "translateToUrdu", phraseIndex: 0 },
+  { pack: "family", type: "translateToEnglish", phraseIndex: 0 },
+  { pack: "food", type: "listenMeaning", phraseIndex: 2 },
+  { pack: "needs", type: "translateToUrdu", phraseIndex: 0 },
+  { pack: "directions", type: "translateToEnglish", phraseIndex: 1 },
+  { pack: "time", type: "listenMeaning", phraseIndex: 0 },
+  { pack: "weather", type: "translateToUrdu", phraseIndex: 2 },
+  { pack: "shopping", type: "translateToEnglish", phraseIndex: 0 },
+  { pack: "work", type: "listenMeaning", phraseIndex: 1 },
+  { pack: "culture", type: "translateToUrdu", phraseIndex: 0 },
+];
+
+function levelPackOverrides(level: Level | null): Partial<Record<string, string>> {
+  if (level === "Intermediate") return INTERMEDIATE_PACK_OVERRIDES;
+  if (level === "Advanced") return ADVANCED_PACK_OVERRIDES;
+  return {};
+}
+
+function buildPlacementQuestion(spec: PlacementSpec, pack: Pack, idIndex: number): LessonQuestion | null {
+  const phrases = pack.phrases.map(([english, transliteration, tip]) => phrase(english, transliteration, tip));
+  const target = phrases[spec.phraseIndex] ?? phrases[0];
+  if (!target) return null;
+  const englishPool = phrases.map((item) => item.english);
+  const urduPool = phrases.map((item) => item.transliteration);
+  const idPrefix = `placement-${idIndex}-${spec.pack}`;
+
+  switch (spec.type) {
+    case "translateToUrdu":
+      return {
+        id: `${idPrefix}-tu`,
+        type: "translateToUrdu",
+        promptEn: `How do you say "${target.english}"?`,
+        promptRoman: `Aap "${target.english}" ko Roman Urdu mein kaise kehte hain?`,
+        promptUrdu: `آپ "${target.english}" کو رومن اردو میں کیسے کہتے ہیں؟`,
+        answerUr: target.transliteration,
+        choices: buildChoices(target.transliteration, urduPool),
+        tip: target.tip,
+        audioText: target.transliteration,
+        helperText: "Choose the correct Urdu phrase.",
+      };
+    case "translateToEnglish":
+      return {
+        id: `${idPrefix}-te`,
+        type: "translateToEnglish",
+        promptEn: `What does "${target.transliteration}" mean?`,
+        promptRoman: `"${target.transliteration}" ka matlab kya hai?`,
+        promptUrdu: `"${target.urduText}" کا مطلب کیا ہے؟`,
+        answerUr: target.english,
+        choices: buildChoices(target.english, englishPool),
+        tip: target.tip,
+        audioText: target.transliteration,
+        helperText: "Pick the English meaning.",
+      };
+    case "listenMeaning":
+      return {
+        id: `${idPrefix}-lm`,
+        type: "listenMeaning",
+        promptEn: "Tap play. What are you hearing?",
+        promptRoman: "Audio suniye. Aap kya sun rahe hain?",
+        promptUrdu: "آڈیو سنیے۔ آپ کیا سن رہے ہیں؟",
+        answerUr: target.english,
+        choices: buildChoices(target.english, englishPool),
+        tip: target.tip,
+        audioText: target.transliteration,
+        helperText: "Listen and choose the meaning.",
+      };
+  }
+}
 
 export function getPlacementQuestions(level: Level | null): LessonQuestion[] {
-  const units = getUnitsForLevel(level);
-  return PLACEMENT_UNIT_INDICES.flatMap((unitIndex, sampleIndex) => {
-    const unit = units[unitIndex];
-    if (!unit) return [];
-    const lesson = unit.lessons[sampleIndex % unit.lessons.length];
-    const questionTypes = ["translateToUrdu", "translateToEnglish", "listenMeaning"] as const;
-    const preferred = questionTypes[sampleIndex % questionTypes.length];
-    const candidate = lesson.questions.find((item) => item.type === preferred)
-      ?? lesson.questions.find((item) => item.type !== "buildSentence")
-      ?? lesson.questions[0];
-    return candidate
-      ? [{ ...candidate, id: `placement-${unitIndex}-${candidate.id}` }]
-      : [];
+  const overrides = levelPackOverrides(level);
+  const seenPacks = new Set<string>();
+  const out: LessonQuestion[] = [];
+  BEGINNER_PLACEMENT_SPECS.forEach((spec, index) => {
+    const packKey = overrides[spec.pack] ?? spec.pack;
+    if (seenPacks.has(packKey)) return; // de-dupe in case overrides collide
+    const pack = PACKS[packKey];
+    if (!pack) return;
+    seenPacks.add(packKey);
+    const built = buildPlacementQuestion({ ...spec, pack: packKey }, pack, index);
+    if (built) out.push(built);
   });
+  return out;
 }
 
 export function getStartingUnitForScore(score: number, total: number): number {
