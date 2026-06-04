@@ -26,7 +26,6 @@ import { AuroraBackground } from "./components/ui/AuroraBackground";
 import { BoardConnector } from "./components/ui/BoardConnector";
 import { BouncyLogo } from "./components/ui/BouncyLogo";
 import { Medal, type MedalRank } from "./components/ui/Medal";
-import { PulsingLogo } from "./components/ui/PulsingLogo";
 import { theme } from "./constants/theme";
 import { getPlacementQuestions } from "./data/lessons";
 import { useQuizApp } from "./hooks/useQuizApp";
@@ -150,7 +149,7 @@ export default function App() {
         <StatusBar barStyle="light-content" />
         <AuroraBackground style={styles.loadingBackdrop} variant="dark">
           <View style={styles.loadingWrap}>
-            <PulsingLogo source={logoImage} size={148} />
+            <Image source={logoImage} style={styles.loadingLogo} resizeMode="cover" />
             <Text style={[styles.eyebrow, styles.eyebrowOnDark]}>Urdu Aura</Text>
             <Text style={[styles.loadingTitle, styles.onDarkText]}>Tuning your lessons...</Text>
           </View>
@@ -3236,6 +3235,15 @@ const styles = StyleSheet.create({
   },
   eyebrowOnDark: {
     color: theme.colors.aura,
+  },
+  loadingLogo: {
+    width: 148,
+    height: 148,
+    borderRadius: 32,
+    shadowColor: "#022c22",
+    shadowOpacity: 0.35,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 16 },
   },
   returningCardStandalone: {
     backgroundColor: theme.colors.card,
