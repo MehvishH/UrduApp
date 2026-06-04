@@ -182,26 +182,31 @@ const PACKS: Record<string, Pack> = {
 type Level = "Beginner" | "Intermediate" | "Advanced";
 type UnitSpec = readonly [string, string, string, readonly string[]];
 
+// Units 1-10 mirror the placement-test order: greetings, family, food,
+// needs, directions, time, weather, shopping, work, culture. That way a
+// user who has just finished the placement quiz lands on units in the
+// exact topic order they were assessed on. Units 11-20 extend with the
+// remaining packs for deeper coverage.
 const BEGINNER_UNIT_SPECS: readonly UnitSpec[] = [
-  ["Foundations", "Build the first phrases of Urdu.", "#38b000", ["greetings", "intro", "manners", "needs", "smalltalk"]],
-  ["Family And Home", "Talk about family and life at home.", "#2d6a4f", ["family", "home", "community", "needs", "greetings"]],
-  ["Daily Basics", "Handle everyday routines more smoothly.", "#40916c", ["needs", "food", "time", "weather", "smalltalk"]],
-  ["Food And Market", "Order, shop, and ask for what you need.", "#f77f00", ["food", "shopping", "manners", "community", "needs"]],
-  ["Getting Around", "Travel, directions, and public movement.", "#277da1", ["directions", "travel", "time", "community", "smalltalk"]],
-  ["Learning Mode", "Study and build stronger learning habits.", "#4d908e", ["school", "reading", "intro", "smalltalk", "fluency"]],
-  ["Work Life", "Professional phrases and teamwork.", "#7f5539", ["work", "smalltalk", "opinions", "time", "fluency"]],
-  ["Feelings And Support", "Describe emotions and offer comfort.", "#bc4749", ["feelings", "health", "community", "smalltalk", "fluency"]],
-  ["Health And Care", "Talk through symptoms and care needs.", "#e63946", ["health", "manners", "community", "needs", "time"]],
-  ["Weather And Time", "Plan around time and daily conditions.", "#219ebc", ["time", "weather", "travel", "smalltalk", "fluency"]],
-  ["Culture", "Respectful language for shared spaces and celebrations.", "#6d597a", ["culture", "community", "manners", "family", "smalltalk"]],
-  ["Opinions", "Share what you think with more confidence.", "#9d4edd", ["opinions", "feelings", "smalltalk", "story", "fluency"]],
-  ["Stories", "Tell stories about the past and your memories.", "#5a189a", ["story", "family", "time", "feelings", "reading"]],
-  ["Technology", "Use Urdu around phones, apps, and online learning.", "#264653", ["tech", "reading", "work", "school", "smalltalk"]],
-  ["Reading Growth", "Strengthen literacy and comprehension.", "#8338ec", ["reading", "school", "story", "opinions", "fluency"]],
-  ["Travel Confidence", "Use Urdu more confidently while moving around.", "#577590", ["travel", "directions", "shopping", "food", "community"]],
-  ["Conversation Builder", "Practice fuller conversations in Urdu.", "#3a86ff", ["smalltalk", "opinions", "feelings", "family", "fluency"]],
-  ["Current Speaker Growth", "Expand everyday vocabulary and expression.", "#06d6a0", ["culture", "opinions", "story", "reading", "fluency"]],
-  ["Listening Review", "Review with more meaning and audio focus.", "#4361ee", ["greetings", "needs", "directions", "smalltalk", "tech"]],
+  ["Greetings", "Warm hellos, names, and polite intros.", "#38b000", ["greetings", "intro", "manners", "smalltalk", "feelings"]],
+  ["Family", "Talk about your closest circle in Urdu.", "#2d6a4f", ["family", "home", "community", "smalltalk", "story"]],
+  ["Food And Drink", "Order, share, and enjoy meals.", "#f77f00", ["food", "shopping", "manners", "needs", "smalltalk"]],
+  ["Daily Needs", "Express what you need each day.", "#40916c", ["needs", "feelings", "health", "manners", "smalltalk"]],
+  ["Directions", "Find your way and ask for help.", "#277da1", ["directions", "travel", "community", "manners", "smalltalk"]],
+  ["Time And Schedules", "Days, hours, and daily routines.", "#219ebc", ["time", "smalltalk", "needs", "work", "weather"]],
+  ["Weather", "Talk about today's conditions.", "#4d908e", ["weather", "travel", "time", "smalltalk", "feelings"]],
+  ["Shopping And Markets", "Buy, ask prices, and bargain.", "#bc4749", ["shopping", "food", "manners", "needs", "smalltalk"]],
+  ["Work Life", "Office, meetings, and teamwork.", "#7f5539", ["work", "smalltalk", "opinions", "time", "school"]],
+  ["Culture And Courtesy", "Respectful language for shared spaces.", "#6d597a", ["culture", "community", "manners", "family", "story"]],
+  ["Feelings", "Describe emotions and offer comfort.", "#e63946", ["feelings", "health", "smalltalk", "story", "fluency"]],
+  ["Health And Care", "Symptoms, care, and well-being.", "#9d4edd", ["health", "needs", "feelings", "manners", "community"]],
+  ["School Life", "Studying and classroom language.", "#5a189a", ["school", "reading", "smalltalk", "intro", "fluency"]],
+  ["Stories", "Tell stories about the past.", "#3a86ff", ["story", "family", "time", "feelings", "reading"]],
+  ["Reading And Writing", "Stronger literacy and clarity.", "#577590", ["reading", "school", "story", "opinions", "fluency"]],
+  ["Travel", "Plan and move with confidence.", "#264653", ["travel", "directions", "shopping", "food", "community"]],
+  ["Opinions", "Share what you think with more confidence.", "#8338ec", ["opinions", "feelings", "smalltalk", "culture", "fluency"]],
+  ["Technology", "Phones, apps, and online learning.", "#06d6a0", ["tech", "reading", "work", "school", "smalltalk"]],
+  ["Conversation Builder", "Practice fuller conversations.", "#4361ee", ["smalltalk", "opinions", "feelings", "family", "fluency"]],
   ["Urdu Aura Finish", "Bring your new skills together.", "#ff006e", ["fluency", "story", "culture", "reading", "smalltalk"]],
 ] as const;
 

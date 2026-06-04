@@ -1718,104 +1718,211 @@ export default function App() {
                   </View>
                 ) : (
                   <>
-                <View style={styles.lessonList}>
-                  <Text style={styles.sectionTitle}>Course path</Text>
-                  <Text style={styles.sectionCopy}>20 units | 5 lessons each | every lesson ends in a quiz checkpoint</Text>
-                  {units.map((unit, unitIndex) => (
-                    <View key={unit.id} style={styles.unitPanel}>
-                      <View style={styles.unitHeader}>
-                        <View style={styles.unitHeaderText}>
-                          <Text style={styles.unitTitle}>Unit {unit.order}: {unit.title}</Text>
-                          <Text style={styles.unitCopy}>{unit.description}</Text>
-                        </View>
-                        <View style={[styles.unitBadge, { backgroundColor: unit.accent }]}>
-                          <Text style={styles.unitBadgeText}>{unit.lessons.length}</Text>
-                          <Text style={styles.unitBadgeLabel}>Lessons</Text>
+                {(() => {
+                  // Bucket units by status so the user can see at a glance
+                  // what's done vs current vs upcoming. The "current" bucket
+                  // is the first unit that isn't fully done — that's where
+                  // the active board view lives. Everything else collapses
+                  // into compact summary cards.
+                  const buckets = units.map((unit, unitIndex) => {
+                    const unitUnlocked = isUnitUnlocked(unitIndex);
+                    const completedCount = unit.lessons.filter((lesson) =>
+                      progress.completedLessons.includes(lesson.id),
+                    ).length;
+                    const fullyDone = completedCount === unit.lessons.length;
+                    return { unit, unitIndex, unitUnlocked, completedCount, fullyDone };
+                  });
+                  const completedUnits = buckets.filter((b) => b.fullyDone);
+                  const currentUnit = buckets.find((b) => !b.fullyDone && b.unitUnlocked);
+                  const lockedUnits = buckets.filter(
+                    (b) => !b.fullyDone && (!currentUnit || b.unitIndex !== currentUnit.unitIndex),
+                  );
+                  const levelKey = progress.level ?? "Beginner";
+                  const totalLessons = buckets.reduce((sum, b) => sum + b.unit.lessons.length, 0);
+                  const doneLessons = progress.completedLessons.length;
+                  const levelDone = completedUnits.length === buckets.length && buckets.length > 0;
+                  return (
+                    <View style={styles.lessonList}>
+                      <View style={styles.coursePathHeader}>
+                        <Text style={styles.sectionTitle}>{levelKey} path</Text>
+                        <Text style={styles.sectionCopy}>
+                          {doneLessons} of {totalLessons} lessons complete · {completedUnits.length} of {buckets.length} units done
+                        </Text>
+                        <View style={styles.coursePathMeterTrack}>
+                          <View
+                            style={[
+                              styles.coursePathMeterFill,
+                              { width: `${totalLessons > 0 ? (doneLessons / totalLessons) * 100 : 0}%` },
+                            ]}
+                          />
                         </View>
                       </View>
-                      {!isUnitUnlocked(unitIndex) && (
-                        <Text style={styles.lockedNote}>Finish the previous unit to unlock this one.</Text>
-                      )}
-                      <View style={styles.boardTrack}>
-                        {unit.lessons.map((lesson, lessonIndex) => {
-                          const completed = progress.completedLessons.includes(lesson.id);
-                          const unlocked = isLessonUnlocked(unitIndex, lessonIndex);
-                          const lane = BOARD_LANES[unitIndex % 2][lessonIndex % BOARD_LANES[0].length];
-                          const prevLane = lessonIndex > 0
-                            ? BOARD_LANES[unitIndex % 2][(lessonIndex - 1) % BOARD_LANES[0].length]
-                            : lane;
-                          const direction = lessonIndex === 0
-                            ? "straight"
-                            : prevLane === lane
-                              ? "straight"
-                              : prevLane === "flex-start" && lane === "flex-end"
-                                ? "leftToRight"
-                                : prevLane === "flex-end" && lane === "flex-start"
-                                  ? "rightToLeft"
-                                  : "straight";
 
-                          return (
-                            <View key={lesson.id} style={[styles.boardStep, { alignItems: lane }]}>
-                              {lessonIndex > 0 ? (
-                                <BoardConnector
-                                  direction={direction}
-                                  color={unit.accent}
-                                  unlocked={unlocked}
-                                  height={62}
-                                />
-                              ) : null}
-                              <Pressable
-                                disabled={!unlocked}
-                                onPress={() => {
-                                  tapHaptic();
-                                  setPreviewLessonId(lesson.id);
-                                }}
-                                style={({ pressed }) => [
-                                  styles.boardNodeShell,
-                                  pressed && unlocked ? styles.boardNodeShellPressed : undefined,
-                                ]}
-                              >
-                                <View
-                                  style={[
-                                    styles.boardNode,
-                                    completed ? styles.boardNodeDone : undefined,
-                                    !unlocked ? styles.boardNodeLocked : undefined,
-                                    !completed && unlocked ? { backgroundColor: lesson.accent } : undefined,
-                                  ]}
-                                >
-                                  <Text style={styles.boardNodeEmoji}>
-                                    {completed ? "★" : unlocked ? "●" : "🔒"}
-                                  </Text>
-                                  <Text style={styles.boardNodeLabel}>{lesson.order}</Text>
-                                </View>
-                              </Pressable>
-                              <Pressable
-                                disabled={!unlocked}
-                                onPress={() => {
-                                  tapHaptic();
-                                  setPreviewLessonId(lesson.id);
-                                }}
-                                style={({ pressed }) => [
-                                  styles.boardInfoCard,
-                                  completed ? styles.boardInfoCardDone : undefined,
-                                  !unlocked ? styles.boardInfoCardLocked : undefined,
-                                  pressed && unlocked ? styles.boardInfoCardPressed : undefined,
-                                ]}
-                              >
-                                <Text numberOfLines={2} style={styles.boardInfoTitle}>
-                                  {lesson.title}
+                      {levelDone ? (
+                        <View style={styles.levelDoneBanner}>
+                          <Text style={styles.levelDoneEmoji}>🏆</Text>
+                          <Text style={styles.levelDoneTitle}>{levelKey} level complete</Text>
+                          <Text style={styles.levelDoneCopy}>
+                            Every unit on this level is done. Open Profile → Edit profile to switch to the next level.
+                          </Text>
+                        </View>
+                      ) : null}
+
+                      {currentUnit ? (
+                        <>
+                          <Text style={styles.sectionGroupLabel}>Continue learning</Text>
+                          <View key={currentUnit.unit.id} style={styles.unitPanel}>
+                            <View style={styles.unitHeader}>
+                              <View style={styles.unitHeaderText}>
+                                <Text style={styles.unitTitle}>Unit {currentUnit.unit.order}: {currentUnit.unit.title}</Text>
+                                <Text style={styles.unitCopy}>{currentUnit.unit.description}</Text>
+                                <Text style={styles.unitProgressLine}>
+                                  {currentUnit.completedCount} / {currentUnit.unit.lessons.length} lessons complete
                                 </Text>
-                                <Text style={styles.boardInfoMeta}>
-                                  {completed ? "Completed" : unlocked ? `${lesson.questions.length} question quiz` : "Locked"}
-                                </Text>
-                              </Pressable>
+                              </View>
+                              <View style={[styles.unitBadge, { backgroundColor: currentUnit.unit.accent }]}>
+                                <Text style={styles.unitBadgeText}>{currentUnit.unit.lessons.length}</Text>
+                                <Text style={styles.unitBadgeLabel}>Lessons</Text>
+                              </View>
                             </View>
-                          );
-                        })}
-                      </View>
+                            <View style={styles.boardTrack}>
+                              {currentUnit.unit.lessons.map((lesson, lessonIndex) => {
+                                const completed = progress.completedLessons.includes(lesson.id);
+                                const unlocked = isLessonUnlocked(currentUnit.unitIndex, lessonIndex);
+                                const lane = BOARD_LANES[currentUnit.unitIndex % 2][lessonIndex % BOARD_LANES[0].length];
+                                const prevLane = lessonIndex > 0
+                                  ? BOARD_LANES[currentUnit.unitIndex % 2][(lessonIndex - 1) % BOARD_LANES[0].length]
+                                  : lane;
+                                const direction = lessonIndex === 0
+                                  ? "straight"
+                                  : prevLane === lane
+                                    ? "straight"
+                                    : prevLane === "flex-start" && lane === "flex-end"
+                                      ? "leftToRight"
+                                      : prevLane === "flex-end" && lane === "flex-start"
+                                        ? "rightToLeft"
+                                        : "straight";
+
+                                return (
+                                  <View key={lesson.id} style={[styles.boardStep, { alignItems: lane }]}>
+                                    {lessonIndex > 0 ? (
+                                      <BoardConnector
+                                        direction={direction}
+                                        color={currentUnit.unit.accent}
+                                        unlocked={unlocked}
+                                        height={62}
+                                      />
+                                    ) : null}
+                                    <Pressable
+                                      disabled={!unlocked}
+                                      onPress={() => {
+                                        tapHaptic();
+                                        setPreviewLessonId(lesson.id);
+                                      }}
+                                      style={({ pressed }) => [
+                                        styles.boardNodeShell,
+                                        pressed && unlocked ? styles.boardNodeShellPressed : undefined,
+                                      ]}
+                                    >
+                                      <View
+                                        style={[
+                                          styles.boardNode,
+                                          completed ? styles.boardNodeDone : undefined,
+                                          !unlocked ? styles.boardNodeLocked : undefined,
+                                          !completed && unlocked ? { backgroundColor: lesson.accent } : undefined,
+                                        ]}
+                                      >
+                                        <Text style={styles.boardNodeEmoji}>
+                                          {completed ? "★" : unlocked ? "●" : "🔒"}
+                                        </Text>
+                                        <Text style={styles.boardNodeLabel}>{lesson.order}</Text>
+                                      </View>
+                                    </Pressable>
+                                    <Pressable
+                                      disabled={!unlocked}
+                                      onPress={() => {
+                                        tapHaptic();
+                                        setPreviewLessonId(lesson.id);
+                                      }}
+                                      style={({ pressed }) => [
+                                        styles.boardInfoCard,
+                                        completed ? styles.boardInfoCardDone : undefined,
+                                        !unlocked ? styles.boardInfoCardLocked : undefined,
+                                        pressed && unlocked ? styles.boardInfoCardPressed : undefined,
+                                      ]}
+                                    >
+                                      <Text numberOfLines={2} style={styles.boardInfoTitle}>
+                                        {lesson.title}
+                                      </Text>
+                                      <Text style={styles.boardInfoMeta}>
+                                        {completed ? "Completed" : unlocked ? `${lesson.questions.length} question quiz` : "Locked"}
+                                      </Text>
+                                    </Pressable>
+                                  </View>
+                                );
+                              })}
+                            </View>
+                          </View>
+                        </>
+                      ) : null}
+
+                      {completedUnits.length > 0 ? (
+                        <>
+                          <Text style={styles.sectionGroupLabel}>Completed ({completedUnits.length})</Text>
+                          {completedUnits.map((bucket) => (
+                            <View key={bucket.unit.id} style={[styles.unitCompactCard, styles.unitCompactCardDone]}>
+                              <View style={[styles.unitCompactAccent, { backgroundColor: bucket.unit.accent }]} />
+                              <View style={styles.unitCompactContent}>
+                                <Text style={styles.unitCompactTitle}>
+                                  Unit {bucket.unit.order}: {bucket.unit.title}
+                                </Text>
+                                <Text style={styles.unitCompactMeta}>
+                                  ★ {bucket.unit.lessons.length} / {bucket.unit.lessons.length} lessons
+                                </Text>
+                              </View>
+                              <Text style={styles.unitCompactStatus}>Done</Text>
+                            </View>
+                          ))}
+                        </>
+                      ) : null}
+
+                      {lockedUnits.length > 0 ? (
+                        <>
+                          <Text style={styles.sectionGroupLabel}>Coming up ({lockedUnits.length})</Text>
+                          {lockedUnits.map((bucket) => (
+                            <View
+                              key={bucket.unit.id}
+                              style={[
+                                styles.unitCompactCard,
+                                !bucket.unitUnlocked ? styles.unitCompactCardLocked : undefined,
+                              ]}
+                            >
+                              <View
+                                style={[
+                                  styles.unitCompactAccent,
+                                  { backgroundColor: bucket.unit.accent, opacity: bucket.unitUnlocked ? 1 : 0.4 },
+                                ]}
+                              />
+                              <View style={styles.unitCompactContent}>
+                                <Text style={styles.unitCompactTitle}>
+                                  Unit {bucket.unit.order}: {bucket.unit.title}
+                                </Text>
+                                <Text style={styles.unitCompactMeta}>
+                                  {bucket.unitUnlocked
+                                    ? `${bucket.completedCount} / ${bucket.unit.lessons.length} lessons`
+                                    : "Locked — finish the previous unit"}
+                                </Text>
+                              </View>
+                              <Text style={styles.unitCompactStatus}>
+                                {bucket.unitUnlocked ? "Open" : "🔒"}
+                              </Text>
+                            </View>
+                          ))}
+                        </>
+                      ) : null}
                     </View>
-                  ))}
-                </View>
+                  );
+                })()}
                   </>
                 )}
               </>
@@ -3892,6 +3999,107 @@ const styles = StyleSheet.create({
   },
   topProfileIconButtonPressed: {
     backgroundColor: theme.colors.brandTint,
+  },
+  coursePathHeader: {
+    gap: 8,
+    paddingBottom: 4,
+  },
+  coursePathMeterTrack: {
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: theme.colors.surfaceAlt,
+    overflow: "hidden",
+    marginTop: 4,
+  },
+  coursePathMeterFill: {
+    height: "100%",
+    backgroundColor: theme.colors.aura,
+    borderRadius: 999,
+  },
+  sectionGroupLabel: {
+    fontSize: 13,
+    fontWeight: theme.weights.extrabold,
+    color: theme.colors.brandDark,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    marginTop: 4,
+  },
+  unitProgressLine: {
+    color: theme.colors.brandDark,
+    fontWeight: theme.weights.extrabold,
+    fontSize: 12,
+    marginTop: 6,
+    letterSpacing: 0.4,
+  },
+  unitCompactCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  unitCompactCardDone: {
+    backgroundColor: theme.colors.brandSoft,
+    borderColor: theme.colors.brandTint,
+  },
+  unitCompactCardLocked: {
+    backgroundColor: theme.colors.lockedSurface,
+    borderColor: theme.colors.border,
+    opacity: 0.85,
+  },
+  unitCompactAccent: {
+    width: 8,
+    height: 36,
+    borderRadius: 4,
+  },
+  unitCompactContent: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  unitCompactTitle: {
+    color: theme.colors.ink,
+    fontSize: 14,
+    fontWeight: theme.weights.extrabold,
+  },
+  unitCompactMeta: {
+    color: theme.colors.muted,
+    fontSize: 12,
+  },
+  unitCompactStatus: {
+    color: theme.colors.brandDark,
+    fontSize: 12,
+    fontWeight: theme.weights.extrabold,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  levelDoneBanner: {
+    backgroundColor: theme.colors.auraSoft,
+    borderWidth: 1.5,
+    borderColor: theme.colors.aura,
+    borderRadius: theme.radius.lg,
+    padding: 18,
+    alignItems: "center",
+    gap: 6,
+  },
+  levelDoneEmoji: {
+    fontSize: 40,
+  },
+  levelDoneTitle: {
+    fontSize: 18,
+    fontWeight: theme.weights.display,
+    color: theme.colors.ink,
+    fontFamily: theme.fonts.serif,
+  },
+  levelDoneCopy: {
+    fontSize: 13,
+    color: theme.colors.muted,
+    textAlign: "center",
+    lineHeight: 18,
   },
   lessonEyebrow: {
     color: theme.colors.brandDark,
