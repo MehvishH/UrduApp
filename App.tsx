@@ -18,7 +18,7 @@ import {
   useFonts,
 } from "@expo-google-fonts/noto-nastaliq-urdu";
 
-import { speakUrdu, stopSpeech } from "./utils/audio";
+import { playCue, speakUrdu, stopSpeech } from "./utils/audio";
 
 import { BottomNav, type BottomTab } from "./components/BottomNav";
 import { ChoiceButton } from "./components/ChoiceButton";
@@ -141,6 +141,7 @@ export default function App() {
     } else {
       errorHaptic();
     }
+    void playCue(feedback.wasCorrect ? "correct" : "wrong");
     feedbackAnim.setValue(0);
     Animated.spring(feedbackAnim, {
       toValue: 1,
@@ -149,6 +150,21 @@ export default function App() {
       bounciness: 8,
     }).start();
   }, [feedback, feedbackAnim]);
+
+  // Fire the "Mubarak ho" celebration cue once when a session flips to
+  // finished with at least one correct answer.
+  const completeCuePlayedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!session?.isFinished) {
+      completeCuePlayedFor.current = null;
+      return;
+    }
+    if (session.correctAnswers <= 0) return;
+    const sessionKey = `${session.lessonId ?? "review"}-${session.questions.length}`;
+    if (completeCuePlayedFor.current === sessionKey) return;
+    completeCuePlayedFor.current = sessionKey;
+    void playCue("complete");
+  }, [session?.isFinished, session?.correctAnswers, session?.lessonId, session?.questions.length]);
 
   if (!isLoaded || !fontsLoaded) {
     return (

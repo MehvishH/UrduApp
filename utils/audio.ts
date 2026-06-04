@@ -134,3 +134,19 @@ export function stopSpeech(): void {
   } catch {}
   tearDownPlayer();
 }
+
+// Short Urdu cues that double as ambient encouragement. Uses the same
+// Google-TTS-then-device-fallback chain as speakUrdu.
+const CUES = {
+  correct: { urdu: "شاباش", roman: "Shabash" },
+  wrong: { urdu: "پھر کوشش", roman: "Phir koshish" },
+  complete: { urdu: "مبارک ہو", roman: "Mubarak ho" },
+} as const;
+
+export type CueKind = keyof typeof CUES;
+
+export async function playCue(kind: CueKind): Promise<void> {
+  const cue = CUES[kind];
+  await speakUrdu(cue);
+}
+
