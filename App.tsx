@@ -22,8 +22,10 @@ import { speakUrdu, stopSpeech } from "./utils/audio";
 
 import { BottomNav, type BottomTab } from "./components/BottomNav";
 import { ChoiceButton } from "./components/ChoiceButton";
+import { AnimatedXp } from "./components/ui/AnimatedXp";
 import { AuroraBackground } from "./components/ui/AuroraBackground";
 import { BoardConnector } from "./components/ui/BoardConnector";
+import { Confetti } from "./components/ui/Confetti";
 import { Medal, type MedalRank } from "./components/ui/Medal";
 import { theme } from "./constants/theme";
 import { getPlacementQuestions } from "./data/lessons";
@@ -1987,7 +1989,11 @@ export default function App() {
                 <View style={styles.lessonCompleteStatsRow}>
                   <View style={styles.lessonCompleteStat}>
                     <Text style={styles.lessonCompleteStatIcon}>⚡</Text>
-                    <Text style={styles.lessonCompleteStatValue}>+{session.correctAnswers * session.xpPerCorrect}</Text>
+                    <AnimatedXp
+                      value={session.correctAnswers * session.xpPerCorrect}
+                      prefix="+"
+                      style={styles.lessonCompleteStatValue}
+                    />
                     <Text style={styles.lessonCompleteStatLabel}>XP earned</Text>
                   </View>
                   <View style={styles.lessonCompleteStat}>
@@ -2026,6 +2032,7 @@ export default function App() {
       {appStage === "main" && !session && !previewLesson ? (
         <BottomNav active={activeBottomTab} onChange={handleBottomTabChange} />
       ) : null}
+      <Confetti active={Boolean(session && sessionFinished && session.correctAnswers > 0)} />
       </AuroraBackground>
     </SafeAreaView>
   );
